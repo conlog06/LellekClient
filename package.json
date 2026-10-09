@@ -85,5 +85,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/conlog06/LellekClient.git"
-  }
+  },
+  "homepage": "https://conlog06.github.io/LellekClient/"
 }
