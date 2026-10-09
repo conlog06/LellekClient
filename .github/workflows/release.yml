@@ -1,0 +1,81 @@
+# Baut LellekClient für Windows und macOS und veröffentlicht ein GitHub-Release.
+# Auslösen: Tag pushen (z. B. git tag v2.1.2 && git push origin v2.1.2) oder unter Actions → Release → „Run workflow“.
+# Die Version kommt aus package.json – Tag und package.json sollten übereinstimmen.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx electron-builder --win nsis --x64 --publish never
+      - name: Datei umbenennen
+        shell: bash
+        run: |
+          mkdir out
+          cp dist/*Setup*.exe out/LellekClient-Setup-Windows.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*
+
+  mac:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx electron-builder --mac dir --arm64 --x64 --publish never
+      - name: Ad-hoc signieren, ZIP und DMG bauen
+        run: |
+          mkdir out
+          for pair in "mac-arm64:AppleSilicon" "mac:Intel"; do
+            dir="${pair%%:*}"; name="${pair##*:}"; app="dist/$dir/LellekClient.app"
+            codesign --force --deep --sign - "$app"
+            codesign --verify --deep --strict "$app"
+            ditto -c -k --sequesterRsrc --keepParent "$app" "out/LellekClient-Mac-$name.zip"
+            stage="dmg-$name"; mkdir "$stage"; cp -R "$app" "$stage/"; ln -s /Applications "$stage/Programme"
+            hdiutil create -volname "LellekClient" -srcfolder "$stage" -ov -format UDZO "out/LellekClient-Mac-$name.dmg"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: out/*
+
+  release:
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Prüfsummen
+        run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Version lesen
+        id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: LellekClient ${{ steps.v.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          make_latest: 'true'
+          files: out/*
