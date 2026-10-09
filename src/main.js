@@ -2019,7 +2019,7 @@ async function presenceCall(method, path, payload) {
   if (!currentAuth) throw new Error('Bitte zuerst mit deinem Microsoft-Konto anmelden');
   if (presenceToken && presenceTokenFor !== currentAuth.profile.id) { const old = presenceToken; presenceToken = null; fetch(presenceBase() + '/v1/presence/me', { method: 'DELETE', headers: { Authorization: `Bearer ${old}` } }).catch(() => {}); }
   if (!presenceToken) await presenceLogin();
-  const go = () => fetch(presenceBase() + path, { method, headers: { Authorization: `Bearer ${presenceToken}`, ...(payload ? { 'Content-Type': 'application/json' } : {}) }, body: payload ? JSON.stringify(payload) : undefined, signal: withTimeout(15000) });
+  const go = () => netRetry(() => fetch(presenceBase() + path, { method, headers: { Authorization: `Bearer ${presenceToken}`, ...(payload ? { 'Content-Type': 'application/json' } : {}) }, body: payload ? JSON.stringify(payload) : undefined, signal: withTimeout(15000) }), 'Freunde-Server');
   let r = await go();
   if (r.status === 401) { await presenceLogin(); r = await go(); }
   return r;
@@ -2435,7 +2435,7 @@ async function buildShareCode(p) {
   }
   let known = {};
   if (entries.length) {
-    const r = await fetch('https://api.modrinth.com/v2/version_files', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'LellekClient' }, body: JSON.stringify({ hashes: entries.map(e => e.sha1), algorithm: 'sha1' }), signal: withTimeout(20000) });
+    const r = await netRetry(() => fetch('https://api.modrinth.com/v2/version_files', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'LellekClient' }, body: JSON.stringify({ hashes: entries.map(e => e.sha1), algorithm: 'sha1' }), signal: withTimeout(25000) }), 'Modrinth');
     if (!r.ok) throw new Error(`Modrinth nicht erreichbar (${r.status})`);
     known = await r.json();
   }
@@ -2707,10 +2707,14 @@ ipcMain.handle('party:plan', async (_e, { profileId, server }) => {
   const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
   if (!partyState) await partyAction('create');
   send('launch:progress', { task: 'Party-Profil wird vorbereitet', percent: 0.3 });
-  const s = await buildShareCode(p);
+  let s = null, warning = null;
+  try { s = await buildShareCode(p); } catch (e) { warning = `${e.message} – Plan ohne Mod-Liste festgelegt: Mitspieler wählen ein eigenes Profil mit Version ${p.version}.`; }
+  if (s && s.code.length > 5000) { warning = 'Zu viele Mods für die automatische Verteilung – Mitspieler wählen ein eigenes Profil oder fügen den Profil-Code aus dem Chat ein.'; s = null; }
   store.partyProfile = p.id; saveStore();
   send('launch:progress', { task: 'Bereit', percent: 0 });
-  return partyAction('plan', { name: p.name, code: s.code, server: String(server || '').trim() || null, version: p.version, loader: p.loader || '', mods: s.mods });
+  let mods = s?.mods || 0; if (!s) { try { mods = (await fsp.readdir(path.join(instanceDir(p), 'mods'))).filter(f => /\.jar$/i.test(f)).length; } catch {} }
+  const v = await partyAction('plan', { name: p.name, code: s?.code || null, server: String(server || '').trim() || null, version: p.version, loader: p.loader || '', mods });
+  return { ...v, warning };
 });
 ipcMain.handle('party:choose', (_e, profileId) => { if (!partyState) return partyView(); store.partyChoice ??= {}; store.partyChoice[partyState.id] = profileId; saveStore(); return partyView(); });
 ipcMain.handle('party:ready', async (_e, ready) => {
@@ -2821,3 +2825,14 @@ wrapHandler('launch', async (orig, e, profileId, server) => {
   return r;
 });
 setInterval(() => { for (const p of store.profiles) { try { const f = runLockFile(p); if (!running.has(p.id) && fs.existsSync(f) && Number(fs.readFileSync(f, 'utf8').split('|')[0]) === process.pid) fs.rmSync(f, { force: true }); } catch {} } }, 5000);
+
+/** Netzwerk-Aufruf mit bis zu 3 Versuchen bei Verbindungsfehlern (z. B. kurzer Aussetzer, Server wacht auf) */
+async function netRetry(fn, what) {
+  let last;
+  for (let i = 0; i < 3; i++) {
+    try { return await fn(); }
+    catch (e) { last = e; if (e?.name === 'AbortError' && i) break; await new Promise(r => setTimeout(r, 1200 * (i + 1))); }
+  }
+  const why = last?.name === 'AbortError' ? 'antwortet nicht' : 'nicht erreichbar';
+  throw new Error(`${what || 'Server'} ${why} – Internetverbindung prüfen und gleich nochmal versuchen`);
+}

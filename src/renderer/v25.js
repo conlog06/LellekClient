@@ -63,8 +63,9 @@ function floatToast(title, sub, opts = {}) {
 {
   const _toast = toast;
   toast = function (msg, isError) {
+    msg = String(msg || '').replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '').replace(/^TypeError: fetch failed$/, 'Keine Verbindung – Internet prüfen und gleich nochmal versuchen');
     _toast(msg, isError);
-    const m = String(msg || '');
+    const m = msg;
     if (!m || /\d+\s?%|^Bereit$|^Lade |^Starte |…$|Optionen gespeichert/.test(m)) return; // Fortschritt bleibt in der Statuszeile
     floatToast(m, '', { err: !!isError });
   };
@@ -685,7 +686,7 @@ async function renderParty(poll) {
     const sv = el('input', 'input'); sv.id = 'partyServer'; sv.placeholder = 'Server, z. B. gommehd.net (leer = nur Spiel starten)'; sv.value = P.plan?.server || ''; sv.setAttribute('list', 'partyServers');
     const dl = el('datalist'); dl.id = 'partyServers'; api.favorites.list().then(f => { for (const x of f) dl.append(new Option(x.name || x.ip, x.ip)); });
     const l1 = el('label', 'form-label', 'Profil (Mods werden an alle verteilt)'); l1.append(ps); const l2 = el('label', 'form-label', 'Server'); l2.append(sv, dl);
-    right.append(l1, l2, btn('ghost', P.plan ? 'Plan aktualisieren' : 'Plan festlegen', async (e) => { e.target.disabled = true; await partyCall(() => api.party.plan({ profileId: ps.value, server: sv.value }), 'Plan festgelegt – alle anderen müssen „Bereit“ drücken'); e.target.disabled = false; }));
+    right.append(l1, l2, btn('ghost', P.plan ? 'Plan aktualisieren' : 'Plan festlegen', async (e) => { e.target.disabled = true; const r = await partyCall(() => api.party.plan({ profileId: ps.value, server: sv.value }), null); if (r) { if (r.warning) floatToast('Plan festgelegt – mit Hinweis', r.warning, { icon: '⚠️', ms: 9000, force: true }); else toast('Plan festgelegt – alle anderen müssen „Bereit“ drücken'); } e.target.disabled = false; }));
   }
   if (P.plan) {
     const sum = el('div', 'plan-sum'); sum.append(el('span', '', 'Profil'), el('b', '', P.plan.name), el('span', '', 'Version'), el('span', '', `${P.plan.version}${P.plan.loader ? ' ' + (LOADER_NAMES[P.plan.loader] || P.plan.loader) : ''}${P.plan.mods ? ' · ' + P.plan.mods + ' Mods' : ''}`), el('span', '', 'Server'), el('span', '', P.plan.server || '– (nur starten)'));

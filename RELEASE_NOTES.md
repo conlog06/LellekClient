@@ -4,6 +4,11 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.5.2
+
+- Party: „Plan festlegen“ wiederholt bei Verbindungsaussetzern automatisch; ohne Modrinth wird der Plan trotzdem festgelegt (Mitspieler wählen ihr eigenes Profil)
+- Verständliche Fehlermeldungen statt „fetch failed“
+
 ## Neu in 2.5.1
 
 - **Zweites Fenster:** Konto-Menü oben rechts → „Zweites Fenster (anderes Konto)“. Jedes Fenster hat eigene Konto-Wahl, Freunde und Chat; Profile, Mods und Server-Favoriten kommen vom Hauptfenster. Dasselbe Profil kann nicht in zwei Fenstern gleichzeitig laufen.
