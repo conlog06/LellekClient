@@ -6,31 +6,43 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="features.css" />
   <link rel="stylesheet" href="features2.css" />
+  <link rel="stylesheet" href="v25.css" />
 </head>
 <body>
   <!-- Linke Icon-Leiste -->
-  <nav class="rail">
-    <img class="rail-logo" src="logo.png" alt="LellekClient" />
-    <button class="rail-btn active" data-view="play"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg><span>Spielen</span></button>
-    <button class="rail-btn" data-view="profiles"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10h8M8 14h5" stroke-width="2"/></svg><span>Profile</span></button>
-    <button class="rail-btn" data-view="content"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span>Mods</span></button>
-    <button class="rail-btn" data-view="worlds"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke-width="1.5"/></svg><span>Welten</span></button>
-    <button class="rail-btn" data-view="server"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/></svg><span>Server</span></button>
-    <button class="rail-btn" data-view="skins"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="7" y="9" width="3" height="3"/><rect x="14" y="9" width="3" height="3"/><rect x="9" y="14" width="6" height="2"/></svg><span>Skins</span></button>
-    <button class="rail-btn" data-view="stats"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 17v-6M11 17V6M16 17v-9M20 17v-4" stroke-width="2.2"/></svg><span>Statistik</span></button>
-    <button class="rail-btn" data-view="friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9 0 5 1.9 5 4.9"/></svg><span>Freunde</span></button>
-    <button class="rail-btn" data-view="design"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/></svg><span>Design</span></button>
-    <div class="rail-spacer"></div>
-    <button class="rail-btn" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke-width="2"/></svg><span>Optionen</span></button>
+  <nav class="rail side">
+    <div class="side-brand"><img class="rail-logo" src="logo.png" alt="" /><div><b id="sideTitle">LellekClient</b><small id="clientVersion"></small></div></div>
+    <div class="side-scroll">
+    <button class="rail-btn active" data-view="play" title="Startseite"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg><span>Startseite</span></button>
+    <p class="side-group">Bibliothek</p>
+    <button class="rail-btn" data-view="profiles" title="Profile"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10h8M8 14h5" stroke-width="2"/></svg><span>Profile</span></button>
+    <button class="rail-btn" data-view="content" title="Mods & Packs"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span>Mods & Packs</span></button>
+    <button class="rail-btn" data-view="worlds" title="Welten"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke-width="1.5"/></svg><span>Welten</span></button>
+    <button class="rail-btn" data-view="skins" title="Skins"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="7" y="9" width="3" height="3"/><rect x="14" y="9" width="3" height="3"/><rect x="9" y="14" width="6" height="2"/></svg><span>Skins</span></button>
+    <p class="side-group">Community</p>
+    <button class="rail-btn" data-view="friends" title="Freunde"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9 0 5 1.9 5 4.9"/></svg><span>Freunde</span></button>
+    <button class="rail-btn" data-view="party" title="Party"><svg viewBox="0 0 24 24"><path d="M4 20l5-14 9 9-14 5z"/><path d="M14 4c1 1 1 2 0 3M18 8c1-1 2-1 3 0M16 2v1M21 6h1M20 3l-1 1" stroke-width="1.6"/></svg><span>Party</span></button>
+    <button class="rail-btn" data-view="radar" title="Server-Radar"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6" stroke-width="2"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span>Server-Radar</span></button>
+    <p class="side-group">Fortschritt</p>
+    <button class="rail-btn" data-view="stats" title="Statistik & Erfolge"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 17v-6M11 17V6M16 17v-9M20 17v-4" stroke-width="2.2"/></svg><span>Statistik & Erfolge</span></button>
+    <p class="side-group">Werkzeuge</p>
+    <button class="rail-btn" data-view="server" title="Server hosten"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/></svg><span>Server hosten</span></button>
+    <button class="rail-btn" data-view="design" title="Design"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/></svg><span>Design</span></button>
+    </div>
+    <div class="side-foot">
+    <button class="rail-btn" data-view="settings" title="Optionen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke-width="2"/></svg><span>Optionen</span></button>
+      <button class="side-collapse" id="sideCollapse" title="Seitenleiste ein-/ausklappen"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    </div>
   </nav>
 
   <div class="shell">
     <!-- Kopfzeile -->
     <header class="topbar">
-      <div class="wordmark"><img src="logo.png" alt="" /><span>LellekClient</span> <small id="clientVersion"></small></div>
+      <div class="crumb"><h1 id="viewTitle">Startseite</h1><span id="viewSub" class="muted"></span></div>
       <div class="topbar-right">
         <button class="streamer-chip hidden" id="streamerChip" title="Streamer-Modus (Strg+Umschalt+S)">● LIVE · Streamer-Modus</button>
-        <button class="kbd-btn" id="paletteBtn" title="Befehlspalette">Suchen & Befehle <kbd>Strg</kbd><kbd>K</kbd></button>
+        <button class="party-chip hidden" id="partyChip" title="Party öffnen"></button>
+        <button class="kbd-btn" id="paletteBtn" title="Befehlspalette"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Suchen oder Befehl …</span> <kbd>Strg</kbd><kbd>K</kbd></button>
         <span class="chip" id="profileCount">0 Profile</span>
         <div id="account" class="account"></div>
       </div>
@@ -55,9 +67,13 @@
             </div>
           </div>
         </div>
-        <aside class="news">
+        <aside class="news dash">
+          <div id="homeLevel" class="dash-card level-card hidden"></div>
+          <div id="homeParty" class="dash-card hidden"></div>
           <div id="friendsMini" class="friends-mini hidden"><h3>Freunde online</h3><div id="friendsMiniList"></div></div>
-          <h3>Neuigkeiten</h3>
+          <div id="homeRecap" class="dash-card hidden"></div>
+          <div id="homeRadar" class="dash-card hidden"></div>
+          <h3 class="news-head">Neuigkeiten <button class="link-btn" id="newsMore">Alle anzeigen</button></h3>
           <div id="newsList"></div>
         </aside>
       </div>
@@ -145,16 +161,39 @@
       </div>
     </section>
 
+    <!-- Server-Radar -->
+    <section class="view" data-view="radar">
+      <div class="view-head">
+        <div><h2>Server-Radar</h2><p class="muted">Deine Server live: Ping, Spieler, Version – und welche Freunde gerade drauf sind.</p></div>
+        <div class="row gap"><span class="muted small-note" id="radarStamp"></span><button class="ghost" id="radarRefresh">Aktualisieren</button></div>
+      </div>
+      <div class="radar-add card">
+        <input id="favName" class="input" placeholder="Name (optional)" style="width:170px" />
+        <input id="favIp" class="input grow" placeholder="Adresse, z. B. play.beispiel.net oder ip:port" />
+        <button class="primary" id="favAdd">Hinzufügen</button>
+        <button class="ghost" id="favImport" title="Server aus der Serverliste des gewählten Profils übernehmen">Aus Profil übernehmen</button>
+      </div>
+      <div id="radarList" class="radar-list"></div>
+      <div id="favList" class="hidden"></div>
+      <h3>Entdecken</h3>
+      <div id="radarDiscover" class="radar-discover"></div>
+    </section>
+
+    <!-- Party -->
+    <section class="view" data-view="party">
+      <div class="view-head">
+        <div><h2>Party</h2><p class="muted">Freunde einladen, ein Profil festlegen – alle bekommen dieselben Mods und starten gemeinsam auf denselben Server.</p></div>
+        <div class="row gap" id="partyHeadActions"></div>
+      </div>
+      <div id="partyBody"></div>
+    </section>
+
     <!-- Server -->
     <section class="view" data-view="server">
       <div class="view-head">
         <div><h2>Server hosten</h2><p class="muted">Dein eigener Server (Vanilla, Paper oder Fabric) – im selben Netz über die LAN-Adresse, von außen über den playit.gg-Tunnel.</p></div>
         <select id="serverProfile" class="select"></select>
       </div>
-      <h3>Server-Favoriten – Direktverbindung</h3>
-      <div class="row gap" style="margin-bottom:8px"><input id="favName" class="input" placeholder="Name" style="width:160px" /><input id="favIp" class="input grow" placeholder="play.beispiel.net oder ip:port" /><button class="primary" id="favAdd">Hinzufügen</button><button class="ghost" id="favImport">Aus Serverliste des Profils</button></div>
-      <div id="favList" class="cards" style="margin-bottom:22px"></div>
-      <h3>Eigener Server</h3>
       <div class="server-layout">
         <div class="card server-card">
           <div id="serverStatus" class="row gap"></div>
@@ -255,12 +294,20 @@
       </div>
       <div id="friendsServer" class="banner hidden"></div>
       <div class="row gap friends-bar">
-        <div class="seg" id="friendsSeg"><button data-ftab="friends" class="active">Freunde <span class="cnt" id="cntFriends"></span></button><button data-ftab="requests">Anfragen <span class="badge-n hidden" id="cntReq"></span></button><button data-ftab="blocked">Blockiert</button></div>
+        <div class="seg" id="friendsSeg"><button data-ftab="friends" class="active">Freunde <span class="cnt" id="cntFriends"></span></button><button data-ftab="requests">Anfragen <span class="badge-n hidden" id="cntReq"></span></button><button data-ftab="chat">Chat <span class="badge-n hidden" id="cntChat"></span></button><button data-ftab="blocked">Blockiert</button></div>
         <span class="grow"></span><input id="friendSearch" class="input" placeholder="Freunde suchen…" style="width:200px" />
       </div>
       <div id="friendList" class="cards friend-cards"></div>
       <div id="requestList" class="req-list hidden"></div>
       <div id="blockedList" class="req-list hidden"></div>
+      <div id="chatPane" class="chat-pane hidden">
+        <aside class="chat-threads" id="chatThreads"></aside>
+        <div class="chat-main">
+          <div class="chat-head" id="chatHead"><span class="muted">Wähle links einen Freund aus.</span></div>
+          <div class="chat-log" id="chatLog"></div>
+          <form class="chat-form hidden" id="chatForm"><button type="button" class="ghost icon-btn" id="chatExtra" title="Profil oder Server schicken">＋</button><input id="chatInput" class="input grow" maxlength="1000" placeholder="Nachricht …" autocomplete="off" /><button class="primary" type="submit">Senden</button></form>
+        </div>
+      </div>
     </section>
 
     <!-- Design -->
@@ -298,9 +345,10 @@
     <!-- Statistik -->
     <section class="view" data-view="stats">
       <div class="view-head">
-        <div><h2>Statistik</h2><p class="muted">Spielzeit, Sitzungen, Server und Abstürze – jeder Start wird automatisch mitgezählt.</p></div>
+        <div><h2>Statistik & Erfolge</h2><p class="muted">Level, Erfolge, Spielzeit, Sitzungen und Server – jeder Start zählt automatisch mit.</p></div>
         <div class="row gap"><button class="ghost" id="statsReset">Verlauf leeren</button></div>
       </div>
+      <div id="achBox" class="ach-box"></div>
       <div id="statsKpis" class="kpis"></div>
       <div class="stats-grid">
         <div class="card"><h3>Letzte 14 Tage</h3><div id="statsDays" class="daychart"></div></div>
@@ -314,77 +362,106 @@
 
     <!-- Einstellungen -->
     <section class="view" data-view="settings">
-      <div class="view-head"><div><h2>Optionen</h2></div></div>
-      <div class="card opt-card" id="streamerCard">
-        <h3>Streamer-Modus</h3>
-        <label class="check"><input type="checkbox" id="stEnabled" /> <b>Streamer-Modus an</b> <span class="muted">(Strg+Umschalt+S)</span></label>
-        <label class="check"><input type="checkbox" id="stAuto" /> Automatisch an, wenn OBS, Streamlabs, XSplit oder Twitch Studio läuft</label>
-        <div class="row gap st-opts">
-          <label class="check"><input type="checkbox" id="stHideName" /> Namen verbergen</label>
-          <label class="check"><input type="checkbox" id="stHideIps" /> Server-Adressen, IPs, Seeds verbergen</label>
-          <label class="check"><input type="checkbox" id="stDiscord" /> Discord ohne Server/Welt</label>
-          <label class="check"><input type="checkbox" id="stMute" /> Keine Benachrichtigungen</label>
-        </div>
-        <p class="muted" id="stState"></p>
+      <div class="view-head"><div><h2>Optionen</h2><p class="muted">Änderungen werden sofort gespeichert. <span id="optSaved" class="opt-saved"></span></p></div>
+        <input id="optSearch" class="input" placeholder="Option suchen …" style="width:240px" /></div>
+      <div class="opt-layout">
+        <nav class="opt-nav" id="optNav">
+          <button data-cat="general" class="active">Allgemein</button>
+          <button data-cat="game">Spiel & Leistung</button>
+          <button data-cat="social">Freunde & Privatsphäre</button>
+          <button data-cat="streamer">Streamer-Modus</button>
+          <button data-cat="integrations">Discord & Integrationen</button>
+          <button data-cat="updates">Updates</button>
+          <button data-cat="data">Daten & Speicher</button>
+        </nav>
+        <form id="settingsForm" class="form opt-form">
+          <section class="opt-sec" data-cat="general">
+            <h3>Allgemein</h3>
+            <div class="opt-row"><div><b>Standard-Arbeitsspeicher</b><span>Gilt für Profile ohne eigene Einstellung (GB)</span></div><input name="memory" type="number" min="1" max="32" class="input" style="width:90px" /></div>
+            <label class="opt-row"><div><b>Launcher beim Spielstart minimieren</b><span>Spart Leistung, solange Minecraft läuft</span></div><input type="checkbox" class="sw" name="closeOnLaunch" /></label>
+            <label class="opt-row"><div><b>Log-Fenster pro Start</b><span>Eigenes Fenster mit der Ausgabe von Minecraft</span></div><input type="checkbox" class="sw" name="logWindow" checked /></label>
+            <label class="opt-row"><div><b>Windows-Benachrichtigungen</b><span>Absturz, Modpack fertig, Update, Freunde</span></div><input type="checkbox" class="sw" name="notifications" checked /></label>
+            <label class="opt-row"><div><b>Symbol im Infobereich</b><span>Mit Schnellstart der Profile</span></div><input type="checkbox" class="sw" name="tray" checked /></label>
+            <label class="opt-row"><div><b>Mit Windows starten</b><span>Startet klein im Infobereich</span></div><input type="checkbox" class="sw" name="autostart" /></label>
+            <label class="opt-row"><div><b>Session-Rückblick</b><span>Nach jeder Runde: Dauer, Fortschritte, Tode, Screenshots</span></div><input type="checkbox" class="sw" id="optRecap" /></label>
+            <label class="opt-row"><div><b>Akzentfarbe</b><span>Gold ist Standard – jede Farbe geht (mehr unter Design)</span></div><input name="accent" type="color" value="#FFB400" /></label>
+            <h3>.minecraft</h3>
+            <label class="opt-row"><div><b>Einstellungen aus .minecraft übernehmen</b><span>options.txt und Serverliste beim ersten Start eines Profils</span></div><input type="checkbox" class="sw" name="importVanilla" checked /></label>
+            <p class="muted" id="vanillaInfo"></p>
+          </section>
+          <section class="opt-sec" data-cat="game">
+            <h3>Leistung</h3>
+            <div class="opt-row"><div><b>Performance-Autopilot</b><span>Ein Klick: RAM, Java-Einstellungen und passende Performance-Mods für ein Profil</span></div><button type="button" class="primary" id="perfOpen">Autopilot starten</button></div>
+            <div class="opt-row"><div><b>PC-Check</b><span>RAM, Prozessor, Grafikkarte und Treiber – mit Empfehlungen</span></div><button type="button" class="ghost" id="pcCheck">PC prüfen</button></div>
+            <label class="opt-row"><div><b>Leistungsmodus für den Launcher</b><span>Keine Animationen, Unschärfe oder Schatten – für schwache PCs und Laptops</span></div><input type="checkbox" class="sw" id="optPerf" /></label>
+            <label class="opt-row"><div><b>Mods vor jedem Start aktualisieren</b><span>Modrinth & CurseForge, mit Zeitmaschinen-Sicherung</span></div><input type="checkbox" class="sw" name="autoUpdateMods" /></label>
+            <label class="opt-row"><div><b>Welten vor jedem Start sichern</b><span>Die letzten 5 Backups bleiben</span></div><input type="checkbox" class="sw" name="backupWorlds" checked /></label>
+            <h3>Java</h3>
+            <div id="javaList" class="row gap"></div>
+            <div class="row gap"><button type="button" class="ghost" id="javaInstall8">Java 8 laden</button><button type="button" class="ghost" id="javaInstall17">Java 17 laden</button><button type="button" class="ghost" id="javaInstall21">Java 21 laden</button><button type="button" class="ghost" id="javaInstall25">Java 25 laden</button></div>
+          </section>
+          <section class="opt-sec" data-cat="social">
+            <h3>Freunde & Online-Status</h3>
+            <label class="opt-row"><div><b>Status mit Freunden teilen</b><span>Aus = du erscheinst offline</span></div><input type="checkbox" class="sw" name="sharePresence" checked /></label>
+            <label class="opt-row"><div><b>Benachrichtigen, wenn ein Freund online kommt</b><span></span></div><input type="checkbox" class="sw" name="friendNotify" checked /></label>
+            <label class="opt-row"><div><b>Chat-Benachrichtigungen</b><span>Neue Nachrichten, wenn der Chat nicht offen ist</span></div><input type="checkbox" class="sw" id="optChatNotify" /></label>
+            <div class="opt-row"><div><b>Abzeichen</b><span>Dieser Erfolg steht für Freunde neben deinem Namen</span></div><select id="optBadge" class="select"></select></div>
+            <label class="opt-col">Presence-Server<input name="presenceServer" class="input" placeholder="https://render-friends-lellek-client-v1.onrender.com (Standard)" />
+              <span class="muted" id="presenceState">Leer lassen für den LellekClient-Server. Nur ausfüllen, wenn du einen eigenen betreibst (server/presence-server.js).</span></label>
+          </section>
+          <section class="opt-sec" data-cat="streamer">
+            <div id="streamerCard" class="opt-card">
+              <h3>Streamer-Modus</h3>
+              <label class="opt-row"><div><b>Streamer-Modus an</b><span>Strg+Umschalt+S</span></div><input type="checkbox" class="sw" id="stEnabled" /></label>
+              <label class="opt-row"><div><b>Automatisch bei Stream-Programmen</b><span>OBS, Streamlabs, XSplit, Twitch Studio</span></div><input type="checkbox" class="sw" id="stAuto" /></label>
+              <div class="st-opts">
+                <label class="opt-row"><div><b>Namen verbergen</b><span></span></div><input type="checkbox" class="sw" id="stHideName" /></label>
+                <label class="opt-row"><div><b>Server-Adressen, IPs und Seeds verbergen</b><span></span></div><input type="checkbox" class="sw" id="stHideIps" /></label>
+                <label class="opt-row"><div><b>Discord ohne Server/Welt</b><span></span></div><input type="checkbox" class="sw" id="stDiscord" /></label>
+                <label class="opt-row"><div><b>Keine Benachrichtigungen</b><span></span></div><input type="checkbox" class="sw" id="stMute" /></label>
+              </div>
+              <p class="muted" id="stState"></p>
+            </div>
+          </section>
+          <section class="opt-sec" data-cat="integrations">
+            <h3>Discord</h3>
+            <label class="opt-row"><div><b>Discord-Status anzeigen</b><span>Launcher offen, Version, Server oder Welt</span></div><input type="checkbox" class="sw" name="discord" checked /></label>
+            <label class="opt-col">Discord-Webhook für Screenshots<input name="discordWebhook" class="input" placeholder="https://discord.com/api/webhooks/…" />
+              <span class="muted">In Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren.</span></label>
+            <details><summary class="muted">Erweitert</summary>
+              <label class="opt-col">Discord-App-ID<input name="discordAppId" class="input" placeholder="18-stellige Application ID" /></label>
+              <label class="opt-col">Discord-Bild-URL<input name="discordImageUrl" class="input" placeholder="https://… (direkter Link zu einem PNG/JPG)" /></label>
+            </details>
+            <h3>Spotify</h3>
+            <label class="opt-col">Spotify-Client-ID<input name="spotifyClientId" class="input" placeholder="32 Zeichen" />
+              <span class="muted">Einmalig unter developer.spotify.com/dashboard eine App anlegen, Redirect-URI <code>http://127.0.0.1:8737/callback</code> eintragen und die Client-ID hier einfügen.</span></label>
+            <div class="row gap" id="spotifyRow"></div>
+            <h3>Cosmetics & Voice</h3>
+            <label class="opt-col">Cosmetics-Server<input name="cosmeticsServer" class="input" placeholder="http://127.0.0.1:8765" /><span class="muted" id="cosmeticsState"></span></label>
+            <label class="opt-col">Voice-Server<input name="voiceServer" class="input" placeholder="http://127.0.0.1:8766" /><span class="muted" id="voiceState"></span></label>
+            <input type="hidden" name="curseforgeKey" />
+          </section>
+          <section class="opt-sec" data-cat="updates">
+            <h3>Updates</h3>
+            <div class="opt-row"><div><b>Nach Updates suchen</b><span id="updateState"></span></div><button type="button" class="ghost" id="updateNow">Jetzt prüfen</button></div>
+            <label class="opt-col">Update-Quelle<input name="updateUrl" class="input" placeholder="leer = offizielle LellekClient-Releases" />
+              <span class="muted">GitHub-Releases-API-Link oder eine eigene JSON-URL mit „version“ und „url“.</span></label>
+          </section>
+          <section class="opt-sec" data-cat="data">
+            <h3>Speicherplatz</h3>
+            <div class="opt-row"><div><b>Logs & Cache aufräumen</b><span id="diskInfo"></span></div><button type="button" class="ghost" id="diskClean">Aufräumen</button></div>
+            <div class="opt-row"><div><b>Zeitmaschine</b><span id="tmInfo">Schnappschüsse von Mods & Configs – pro Profil unter „Profile“ → ⋯ → Zeitmaschine</span></div></div>
+            <h3>Komplett-Backup</h3>
+            <div class="opt-row"><div><b>Alle Daten sichern</b><span>Profile, Mods, Welten, Einstellungen, Skins – zum Umzug auf einen anderen PC</span></div><div class="row gap"><button type="button" class="ghost" id="backupAll">Sichern (ZIP)</button><button type="button" class="ghost" id="restoreAll">Wiederherstellen</button></div></div>
+            <h3>Datenordner</h3>
+            <p class="muted">Daten liegen in <code id="dataDir"></code> <span id="portableHint"></span></p>
+            <p class="muted">Portable-Modus: eine leere Datei <code>portable.txt</code> neben die LellekClient.exe legen – dann liegen alle Daten im Ordner <code>LellekClient-Daten</code> daneben.</p>
+            <div class="row gap"><button type="button" class="ghost" id="openDataDir">Datenordner öffnen</button></div>
+          </section>
+          <p class="muted opt-empty hidden" id="optEmpty">Keine Option passt zur Suche.</p>
+          <button type="submit" class="hidden" id="optSubmit">Speichern</button>
+        </form>
       </div>
-      <div class="card opt-card"><h3>PC-Check</h3><div class="row gap"><button class="primary" id="pcCheck">PC prüfen</button><span class="muted">RAM, Prozessor, Grafikkarte und Treiber – mit passenden Einstellungen für deine Profile.</span></div></div>
-      <form id="settingsForm" class="form">
-        <label>Standard-Arbeitsspeicher (GB)<input name="memory" type="number" min="1" max="32" class="input" /></label>
-        <label class="check"><input type="checkbox" name="closeOnLaunch" /> Launcher beim Spielstart minimieren</label>
-        <label class="check"><input type="checkbox" name="logWindow" checked /> Eigenes Log-Fenster pro Start öffnen</label>
-        <label class="check"><input type="checkbox" name="backupWorlds" checked /> Welten vor jedem Start sichern</label>
-        <label class="check"><input type="checkbox" name="notifications" checked /> Windows-Benachrichtigungen (Absturz, Modpack fertig, Update)</label>
-        <label class="check"><input type="checkbox" name="autoUpdateMods" /> Mods vor jedem Start automatisch aktualisieren (Modrinth & CurseForge)</label>
-        <label class="check"><input type="checkbox" name="tray" checked /> Symbol im Infobereich mit Schnellstart der Profile</label>
-        <label>Akzentfarbe<div class="row gap"><input name="accent" type="color" value="#FFB400" /><span class="muted">Gold ist Standard – jede Farbe geht.</span></div></label>
-        <input type="hidden" name="curseforgeKey" />
-        <h3>Updates</h3>
-        <label>Update-Quelle<input name="updateUrl" class="input" placeholder="https://api.github.com/repos/DEIN-NAME/LellekClient/releases/latest" />
-          <span class="muted">GitHub-Releases-API-Link oder eine eigene JSON-URL mit „version“ und „url“. Der Launcher prüft beim Start und zeigt einen Hinweis.</span></label>
-        <div class="row gap"><button type="button" class="ghost" id="updateNow">Jetzt prüfen</button><span class="muted" id="updateState"></span></div>
-        <h3>Autostart</h3>
-        <label class="check"><input type="checkbox" name="autostart" /> LellekClient mit Windows starten (im Infobereich)</label>
-        <h3>Java</h3>
-        <div id="javaList" class="row gap"></div>
-        <div class="row gap"><button type="button" class="ghost" id="javaInstall8">Java 8 laden</button><button type="button" class="ghost" id="javaInstall17">Java 17 laden</button><button type="button" class="ghost" id="javaInstall21">Java 21 laden</button><button type="button" class="ghost" id="javaInstall25">Java 25 laden</button></div>
-        <h3>Speicherplatz</h3>
-        <div class="row gap"><span class="muted" id="diskInfo"></span><button type="button" class="ghost" id="diskClean">Logs & Cache aufräumen</button></div>
-        <h3>Freunde & Online-Status</h3>
-        <label>Presence-Server<input name="presenceServer" class="input" placeholder="https://render-friends-lellek-client-v1.onrender.com (Standard)" />
-          <span class="muted" id="presenceState">Leer lassen für den LellekClient-Server. Nur ausfüllen, wenn du einen eigenen betreibst (server/presence-server.js).</span></label>
-        <label class="check"><input type="checkbox" name="sharePresence" checked /> Meinen Status mit Freunden teilen</label>
-        <label class="check"><input type="checkbox" name="friendNotify" checked /> Benachrichtigen, wenn ein Freund online kommt</label>
-        <h3>Screenshots an Discord</h3>
-        <label>Discord-Webhook<input name="discordWebhook" class="input" placeholder="https://discord.com/api/webhooks/…" />
-          <span class="muted">In Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren.</span></label>
-        <h3>Discord</h3>
-        <label class="check"><input type="checkbox" name="discord" checked /> Discord-Status anzeigen (Launcher offen, Version, Server oder Welt)</label>
-        <details><summary class="muted">Erweitert (nur nötig, solange keine feste LellekClient-App-ID eingebaut ist)</summary>
-        <label>Discord-App-ID<input name="discordAppId" class="input" placeholder="18-stellige Application ID" /></label></details>
-        <label>Discord-Bild-URL<input name="discordImageUrl" class="input" placeholder="https://… (direkter Link zu einem PNG/JPG)" />
-          <span class="muted">Einfachster Weg für das Bild: Logo irgendwo hochladen (z. B. GitHub, imgur) und den direkten Link hier eintragen. Alternativ im Developer Portal unter Rich Presence → Art Assets ein Bild mit dem Namen „logo“ hochladen und dieses Feld leer lassen.</span></label>
-        <h3>.minecraft</h3>
-        <label class="check"><input type="checkbox" name="importVanilla" checked /> Einstellungen (options.txt, Serverliste) beim ersten Start eines Profils aus .minecraft übernehmen</label>
-        <p class="muted" id="vanillaInfo"></p>
-        <h3>Cosmetics-Server</h3>
-        <label>Server-URL<input name="cosmeticsServer" class="input" placeholder="http://127.0.0.1:8765" />
-          <span class="muted" id="cosmeticsState">Damit andere LellekClient-Spieler dein Cosmetic und Cape sehen. Zum Testen lokal (node server.js), für alle auf einem kleinen VPS.</span></label>
-        <h3>Voice-Server</h3>
-        <label>Server-URL<input name="voiceServer" class="input" placeholder="http://127.0.0.1:8766" />
-          <span class="muted" id="voiceState">Proximity-Voice-Chat mit Push-to-Talk (B) in jeder Version. Server: LellekVoiceServer, Port für TCP und UDP freigeben.</span></label>
-        <h3>Spotify</h3>
-        <label>Spotify-Client-ID<input name="spotifyClientId" class="input" placeholder="32 Zeichen" />
-          <span class="muted">Einmalig unter developer.spotify.com/dashboard eine App anlegen, Redirect-URI <code>http://127.0.0.1:8737/callback</code> eintragen und die Client-ID hier einfügen. Speichern, dann verbinden.</span></label>
-        <div class="row gap" id="spotifyRow"></div>
-        <h3>Komplett-Backup</h3>
-        <div class="row gap"><button type="button" class="ghost" id="backupAll">Alle Daten sichern (ZIP)</button><button type="button" class="ghost" id="restoreAll">Aus Backup wiederherstellen</button><span class="muted">Profile, Mods, Welten, Einstellungen, Skins – zum Umzug auf einen anderen PC.</span></div>
-        <p class="muted">Daten liegen in <code id="dataDir"></code> <span id="portableHint"></span></p>
-        <p class="muted">Portable-Modus: eine leere Datei <code>portable.txt</code> neben die LellekClient.exe legen – dann liegen alle Daten im Ordner <code>LellekClient-Daten</code> daneben (z. B. für einen USB-Stick).</p>
-        <div class="row gap">
-          <button type="button" class="ghost" id="openDataDir">Datenordner öffnen</button>
-          <button type="submit" class="primary">Speichern</button>
-        </div>
-      </form>
     </section>
 
     <!-- Status -->
@@ -482,5 +559,6 @@
   <script src="app.js"></script>
   <script src="features.js"></script>
   <script src="features2.js"></script>
+  <script src="v25.js"></script>
 </body>
 </html>

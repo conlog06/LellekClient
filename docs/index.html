@@ -227,6 +227,7 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
   <div class="wrap">
     <a class="brand" href="#top"><img src="img/logo.webp" alt="" width="38" height="38">LellekClient</a>
     <nav class="nav-links" aria-label="Hauptmenü">
+      <a href="#only">Neu in 2.5</a>
       <a href="#features">Features</a>
       <a href="#launcher">Launcher</a>
       <a href="#news">News</a>
@@ -248,13 +249,13 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
       <div class="hero-copy">
         <a class="badge" href="#news"><b>NEU</b> Version 2.1 – jetzt auch für den Mac</a>
         <h1>Minecraft, wie du es willst.<span>Ein Launcher für alles.</span></h1>
-        <p class="hero-lead">Jede Version von 1.8.9 bis 26.2, Fabric, Forge und NeoForge, Mods und Modpacks mit einem Klick, eigenes HUD, Freundesliste und dein eigener Server – kostenlos für Windows und Mac.</p>
+        <p class="hero-lead">Jede Version von 1.8.9 bis 26.2, Fabric, Forge und NeoForge, Mods mit einem Klick, Party-Modus mit Freunden, Chat, Zeitmaschine und dein eigener Server – kostenlos für Windows und Mac.</p>
         <div class="cta">
           <a class="btn btn-main js-dl-main" href="#download">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M12 3v12M6 10l6 6 6-6M4 21h16"/></svg>
             <span class="js-dl-label">Download für Windows</span>
           </a>
-          <a class="btn btn-soft" href="#features">Was er kann</a>
+          <a class="btn btn-soft" href="#only">Was er kann</a>
         </div>
         <div class="other">Auch für: <a class="js-dl-mac-arm" href="#download">Mac (Apple Silicon)</a><a class="js-dl-mac-intel" href="#download">Mac (Intel)</a><a class="js-dl-win" href="#download">Windows</a></div>
       </div>
@@ -269,6 +270,46 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
       </div>
     </div>
   </div>
+
+  <section id="only">
+    <div class="wrap">
+      <div class="head">
+        <span class="kicker">Neu in 2.5</span>
+        <h2>Gibt’s so nur bei LellekClient</h2>
+        <p>Zusammen spielen ohne Mod-Chaos, Profile als Code teilen, eine Zeitmaschine für deine Mods – und ein Level, das mit dir wächst.</p>
+      </div>
+      <div class="bento">
+        <article class="tile t-6 t-wide">
+          <div class="tile-body"><span class="kicker">Party-Modus</span><h3>Gleiche Mods, gleicher Server, gleicher Moment</h3><p>Freunde in die Party holen, Profil und Server festlegen. Wer „Bereit“ drückt, bekommt fehlende Mods automatisch – dann startet ihr nach einem Countdown alle gleichzeitig.</p></div>
+          <div class="media"><img src="img/card-party.webp" alt="Party mit drei Mitgliedern, Plan und Start-Knopf" width="1100" height="433" loading="lazy"></div>
+        </article>
+        <article class="tile t-3">
+          <div class="tile-body"><span class="kicker">Chat</span><h3>Schreiben, ohne das Spiel zu wechseln</h3><p>Nachrichten an Freunde direkt im Launcher – auch Profile und Server mit einem Klick zum Übernehmen.</p></div>
+          <div class="media"><img src="img/card-chat.webp" alt="Chat mit Profil- und Server-Karten" width="900" height="398" loading="lazy"></div>
+        </article>
+        <article class="tile t-3">
+          <div class="tile-body"><span class="kicker">Server-Radar</span><h3>Wer ist wo – live</h3><p>Ping, Spielerzahl und Version deiner Server – und welche Freunde gerade drauf sind. Beitreten mit dem passenden Profil.</p></div>
+          <div class="media"><img src="img/card-radar.webp" alt="Server-Radar mit Hypixel und GommeHD" width="900" height="323" loading="lazy"></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">Profil-Codes</span><h3>Ein Modpack als Text</h3><p>„LC1-…“ kopieren, Freund fügt ein – fertig ist dieselbe Instanz mit allen Mods, Resourcepacks und Shadern.</p></div>
+          <div class="loaders" aria-hidden="true"><span class="hl">LC1-jZBBDoIw…</span></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">Zeitmaschine</span><h3>Ein Klick zurück</h3><p>Vor jedem Start, Update und jeder Installation wird gesichert. Kaputtes Update? Zurück auf gestern.</p></div>
+          <div class="loaders" aria-hidden="true"><span>+ sodium</span><span>− optifine</span><span class="hl">⏪ gestern</span></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">Performance-Autopilot</span><h3>Mehr FPS mit einem Klick</h3><p>Passender RAM, optimierte Java-Einstellungen und Sodium, Lithium, FerriteCore &amp; Co. – passend zu deinem PC.</p></div>
+          <div class="loaders" aria-hidden="true"><span>Sodium</span><span>Lithium</span><span class="hl">FerriteCore</span></div>
+        </article>
+        <article class="tile t-6 t-wide">
+          <div class="tile-body"><span class="kicker">Level, Erfolge &amp; Rückblick</span><h3>Jede Runde zählt</h3><p>25 Erfolge, ein Level, das deine Freunde sehen, und nach jeder Session ein Rückblick: Fortschritte, Tode, Kills, Screenshots.</p></div>
+          <div class="media"><img src="img/card-achievements.webp" alt="Level 12 mit freigeschalteten Erfolgen" width="900" height="354" loading="lazy"></div>
+        </article>
+      </div>
+    </div>
+  </section>
 
   <section id="features">
     <div class="wrap">
@@ -347,6 +388,7 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
     <div class="wrap">
       <div class="head"><span class="kicker">News</span><h2>Was zuletzt dazukam</h2></div>
       <div class="news">
+        <article class="post"><img src="img/card-party.webp" alt="Party-Modus" width="1100" height="433" style="object-position:left top"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>2.5 – Party, Chat, Zeitmaschine</h3><p>Neue Oberfläche, Party-Modus, Chat, Profil-Codes, Zeitmaschine, Session-Rückblick, Level &amp; Erfolge, Server-Radar und Performance-Autopilot.</p></div></article>
         <article class="post"><img src="img/card-play.webp" alt="Spielen-Knopf des LellekClient" width="700" height="259"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>2.1 – LellekClient für den Mac</h3><p>Apple Silicon und Intel, ⌘-Tastenkürzel, Menüleisten-Symbol. Alte Versionen wie 1.8.9 starten auf M-Chips über Rosetta.</p></div></article>
         <article class="post"><img src="img/card-friendlist.webp" alt="Freundesliste mit Online-Status" width="1100" height="200" style="object-position:left top"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>2.0 – Freunde, Streamer-Modus, Design</h3><p>Freundesliste mit Beitreten-Knopf, Streamer-Modus, acht Farbschemas, Paper- und Fabric-Server mit Plugins, PC-Check.</p></div></article>
         <article class="post"><img src="img/card-design.webp" alt="Design-Seite" width="900" height="491"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>1.9 – NeoForge &amp; Selbst-Updater</h3><p>NeoForge-Profile und -Modpacks, Updates mit einem Klick, Profile als Modrinth-Modpack (.mrpack) teilen.</p></div></article>
@@ -363,6 +405,7 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
         <details><summary>Ist LellekHUD auf Servern erlaubt?</summary><p>LellekHUD zeigt Informationen an und enthält keine Cheats. Ob HUD-Mods erlaubt sind, regelt jeder Server selbst – im Zweifel die Server-Regeln lesen.</p></details>
         <details><summary>Kann ich meine Mods und Welten mitnehmen?</summary><p>Ja. Unter Profile → „Aus anderem Launcher“ übernimmst du Mods, Welten, Einstellungen und Serverlisten aus dem offiziellen Launcher, Prism, MultiMC, CurseForge, Modrinth-App, ATLauncher, Lunar, Feather und NoRisk.</p></details>
         <details><summary>Wie funktioniert die Freundesliste?</summary><p>Du schickst eine Freundschaftsanfrage an den Minecraft-Namen, dein Freund nimmt sie in LellekClient an – erst dann seht ihr euch gegenseitig. Status (Online, Abwesend, Bitte nicht stören, Unsichtbar) und Notiz stellst du selbst ein. Jedes Minecraft-Konto hat seine eigene Liste – wechselst du das Konto, wechselt auch die Liste. Den Status kannst du in den Optionen abschalten.</p></details>
+        <details><summary>Wie funktioniert der Party-Modus?</summary><p>Unter „Party“ startest du eine Party und lädst Freunde ein. Der Leiter wählt ein Profil und einen Server. Jeder drückt „Bereit“ – fehlende Mods werden dabei automatisch geladen. Nach „Gemeinsam starten“ läuft ein Countdown und Minecraft startet bei allen gleichzeitig, direkt auf dem Server.</p></details>
         <details><summary>Wie bekomme ich Updates?</summary><p>Automatisch: Der Launcher meldet neue Versionen oben rechts. Unter Windows reicht ein Klick zum Installieren, auf dem Mac öffnet sich der Download.</p></details>
       </div>
     </div>

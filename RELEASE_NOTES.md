@@ -4,6 +4,20 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.5 – die große Überarbeitung
+
+**Neue Oberfläche:** Seitenleiste mit Gruppen (Bibliothek · Community · Fortschritt · Werkzeuge), einklappbar; Optionen in Kategorien mit Suche und automatischem Speichern; aufgeräumte Profilkarten; schwebende Hinweise; Leistungsmodus für schwache PCs; die 3D-Vorschau pausiert, wenn sie nicht zu sehen ist.
+
+**Neue Funktionen:**
+- **Party-Modus:** Freunde einladen, Profil und Server festlegen – wer „Bereit“ drückt, bekommt fehlende Mods automatisch, dann starten alle nach einem Countdown gleichzeitig
+- **Chat** mit Freunden im Launcher – auch Profile und Server zum direkten Übernehmen
+- **Profil-Codes:** ganzes Modpack als kurzer Text („LC1-…“) teilen und einfügen
+- **Zeitmaschine:** automatische Sicherung von Mods & Configs vor jedem Start, Update und jeder Installation – ein Klick zurück
+- **Session-Rückblick** nach jeder Runde: Dauer, Fortschritte, Tode, Kills, Screenshots
+- **Level & 25 Erfolge**, Level und Abzeichen für Freunde sichtbar
+- **Server-Radar:** Live-Ping, Spielerzahl, Version – und welche Freunde gerade drauf sind
+- **Performance-Autopilot:** RAM, Java-Einstellungen und Performance-Mods (Sodium, Lithium, FerriteCore …) mit einem Klick
+
 ## Neu in 2.2
 
 - Freundschaftsanfragen: Der andere muss annehmen, erst dann seht ihr euch (Anfragen annehmen, ablehnen, zurückziehen)

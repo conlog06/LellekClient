@@ -38,11 +38,13 @@ npm run dist:portable :: eine einzelne portable .exe → dist\
 | `src/renderer/index.html`, `app.js`, `style.css` | Oberfläche |
 | `src/renderer/features.js`, `features.css` | Neue Oberfläche aus 1.8 (Statistik, Befehlspalette, Diagnose, Mod-Sets …) |
 | `src/renderer/features2.js`, `features2.css` | Oberfläche aus 2.0 (Streamer-Modus, Design, Freunde, Server-Plugins, PC-Check, Galerie) |
+| `src/renderer/v25.js`, `v25.css` | Oberfläche 2.5 (Seitenleiste, Optionen, Startseite) und Party, Chat, Profil-Codes, Zeitmaschine, Rückblick, Erfolge, Server-Radar, Autopilot |
 | `server/presence-server.js` | Kleiner Server für die Freundesliste (läuft getrennt, nicht im Launcher) |
 | `assets/mods/` | Mitgelieferte LellekHUD-Jars |
 
 ## Neu in 2.1.1
 
+- 2.5: neue Oberfläche, Party-Modus, Chat, Profil-Codes, Zeitmaschine, Session-Rückblick, Level & Erfolge, Server-Radar, Performance-Autopilot
 - 2.2: Freundschaftsanfragen (gegenseitig), Status + Notiz, Einladungen, Favoriten, Spitznamen, Blockieren
 - Jedes Minecraft-Konto hat seine eigene Freundesliste (alte Liste wird dem aktuellen Konto zugeordnet)
 - Update-Quelle fest eingebaut: GitHub Releases von conlog06/LellekClient

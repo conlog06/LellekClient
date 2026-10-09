@@ -772,6 +772,7 @@ $('#settingsForm').onsubmit = async (e) => {
 
 // ---------- Neuigkeiten ----------
 const NEWS = [
+  { date: '2026-10-09', title: 'LellekClient 2.5 – die große Überarbeitung', text: 'Neue Oberfläche mit geordneter Seitenleiste, Optionen mit Suche und flüssigeren Seitenwechseln. Neu: Party-Modus (alle bekommen dieselben Mods und starten gemeinsam), Chat mit Freunden, Profil-Codes, Zeitmaschine für Mods & Configs, Session-Rückblick, Level & 25 Erfolge, Server-Radar mit Freunden und Performance-Autopilot.' },
   { date: '2026-10-09', title: 'LellekClient 2.2 – Freundschaftsanfragen', text: 'Freunde müssen deine Anfrage jetzt annehmen – erst dann seht ihr euch gegenseitig. Neu: eigener Status (Online, Abwesend, Bitte nicht stören, Unsichtbar) mit kurzer Notiz, Einladungen an Freunde mit Nachricht und Server, Favoriten, Spitznamen, Blockieren und ein Zähler für offene Anfragen.' },
   { date: '2026-10-09', title: 'LellekClient 2.1.1', text: 'Jedes Minecraft-Konto hat jetzt seine eigene Freundesliste – beim Kontowechsel wechselt die Liste mit. Updates kommen ab jetzt automatisch über GitHub.' },
   { date: '2026-10-09', title: 'LellekClient 2.1 – jetzt auch für Mac', text: 'LellekClient läuft auf macOS – für Apple-Silicon-Macs (M1–M4) und Intel-Macs. Alte Versionen wie 1.8.9 und 1.12.2 starten auf Apple Silicon automatisch mit Intel-Java über Rosetta. ⌘-Tastenkürzel, Menüleisten-Symbol, PC-Check erkennt Apple-Chips.' },

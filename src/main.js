@@ -41,10 +41,15 @@ function loadStore() {
   }
   catch { return { profiles: [], accounts: [], currentAccount: null, settings: { memory: 4, closeOnLaunch: false, curseforgeKey: DEFAULT_CF_KEY, spotifyClientId: '', cosmeticsServer: 'http://127.0.0.1:8765', voiceServer: 'http://127.0.0.1:8766', updateUrl: '' } }; }
 }
-function saveStore() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+// Speichern gebündelt (max. alle 400 ms) – blockiert den Launcher nicht bei vielen Änderungen hintereinander
+let storeTimer = null;
+function saveStoreNow() {
+  clearTimeout(storeTimer); storeTimer = null;
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); const tmp = STORE_FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(store)); fs.renameSync(tmp, STORE_FILE); }
+  catch { try { fs.writeFileSync(STORE_FILE, JSON.stringify(store)); } catch {} }
 }
+function saveStore() { if (!storeTimer) storeTimer = setTimeout(saveStoreNow, 400); }
+process.on('exit', () => { if (storeTimer) saveStoreNow(); });
 function send(channel, payload) { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); }
 
 // ---------- Fenster ----------
@@ -477,6 +482,7 @@ async function installModrinthVersion(p, kind, version, seen = new Set(), log = 
   }
   const file = kind === 'mods' ? pickFile(version, p.loader) : (version.files.find(f => f.primary) || version.files[0]);
   if (!file) return out;
+  file.filename = path.basename(file.filename);
   await download(file.url, path.join(kindDir(p.id, kind), file.filename));
   p.installed ??= {};
   p.installed[version.project_id] = file.filename;
@@ -1001,7 +1007,7 @@ ipcMain.handle('packs:preview', async (_e, { profileId, kind, file }) => {
 ipcMain.handle('backup:all', async () => {
   const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: `LellekClient-Backup-${new Date().toISOString().slice(0, 10)}.zip`, filters: [{ name: 'ZIP', extensions: ['zip'] }] });
   if (canceled) return false;
-  const zip = new AdmZip(); zip.addLocalFile(STORE_FILE);
+  saveStoreNow(); const zip = new AdmZip(); zip.addLocalFile(STORE_FILE);
   for (const p of store.profiles) { const d = instanceDir(p); if (fs.existsSync(d)) { send('launch:progress', { task: `Backup ${p.name}`, percent: 0.5 }); for (const sub of ['mods', 'config', 'saves', 'resourcepacks', 'shaderpacks', 'options.txt', 'servers.dat']) { const f = path.join(d, sub); if (!fs.existsSync(f) || fs.lstatSync(f).isSymbolicLink()) continue; if (fs.statSync(f).isDirectory()) zip.addLocalFolder(f, `instances/${p.id}/${sub}`); else zip.addLocalFile(f, `instances/${p.id}`); } } }
   if (fs.existsSync(SKINS_DIR)) zip.addLocalFolder(SKINS_DIR, 'skins');
   zip.writeZip(filePath); send('launch:progress', { task: 'Backup fertig', percent: 1 }); return true;
@@ -2022,10 +2028,11 @@ async function pollFriends(again) {
   if (!currentAuth) { send('friends:update', friendList()); return; }
   lastPoll = Date.now();
   try {
-    let r = await presenceCall('GET', '/v1/friends');
-    if (r.status === 409) { await publishPresence(true); r = await presenceCall('GET', '/v1/friends'); }
+    let r = await presenceCall('GET', '/v1/friends?social=1');
+    if (r.status === 409) { await publishPresence(true); r = await presenceCall('GET', '/v1/friends?social=1'); }
     if (!r.ok) throw new Error(String(r.status));
     const d = await r.json(); presenceOnline = true;
+    try { friendsHook(d); } catch {}
     const s = social(); let friends = myFriends(), changed = false;
     // Entfernt worden
     for (const x of d.removed || []) { if (friends.some(f => f.uuid === x.uuid)) { friends = friends.filter(f => f.uuid !== x.uuid); changed = true; } }
@@ -2269,3 +2276,505 @@ ipcMain.handle('tunnel:start', async () => {
 ipcMain.handle('tunnel:stop', () => { if (tunnelProc) { try { execFile('taskkill', ['/PID', String(tunnelProc.pid), '/T', '/F'], { windowsHide: true }, () => {}); } catch {} try { tunnelProc.kill(); } catch {} tunnelProc = null; } send('tunnel:state', { running: false }); return { running: false }; });
 ipcMain.handle('server:setAddress', (_e, { profileId, address }) => { const p = store.profiles.find(x => x.id === profileId); if (!p) throw new Error('Profil nicht gefunden'); p.publicAddress = String(address || '').trim().slice(0, 120); saveStore(); return p.publicAddress; });
 app.on('before-quit', () => { if (tunnelProc) { try { execFile('taskkill', ['/PID', String(tunnelProc.pid), '/T', '/F'], { windowsHide: true }, () => {}); } catch {} } });
+
+// =====================================================================
+// LellekClient 2.5 – Party, Chat, Profil-Codes, Zeitmaschine, Session-Rückblick,
+// Level & Erfolge, Server-Radar, Performance-Autopilot
+// =====================================================================
+const zlib = require('zlib');
+let friendsHook = () => {};
+const dnsp = require('dns').promises;
+app.on('will-quit', () => saveStoreNow());
+/** Vorhandenen IPC-Handler umhüllen: fn(original, event, ...args) */
+function wrapHandler(ch, fn) { const orig = handlers[ch]; if (!orig) return; ipcMain.removeHandler(ch); ipcMain.handle(ch, (e, ...a) => fn(orig, e, ...a)); }
+function bump(key, n = 1) { store.counters ??= {}; store.counters[key] = (store.counters[key] || 0) + n; saveStore(); setTimeout(checkAchievements, 200); }
+const profileById = (id) => store.profiles.find(x => x.id === id);
+
+// ---------- Zeitmaschine: Schnappschüsse von Mods & Configs (inhaltsbasiert, ohne Doppelungen) ----------
+const TM_DIR = path.join(DATA_DIR, 'timemachine'), TM_OBJ = path.join(TM_DIR, 'objects'), TM_MAX = 20;
+const TM_FILES = ['options.txt', 'optionsof.txt', 'optionsshaders.txt', 'servers.dat'];
+const tmFile = (id) => path.join(TM_DIR, `${id}.json`);
+function tmLoad(id) { try { const d = JSON.parse(fs.readFileSync(tmFile(id), 'utf8')); d.snaps ??= []; d.cache ??= {}; return d; } catch { return { snaps: [], cache: {} }; } }
+function tmSave(id, d) { fs.mkdirSync(TM_DIR, { recursive: true }); const f = tmFile(id); fs.writeFileSync(f + '.tmp', JSON.stringify(d)); fs.renameSync(f + '.tmp', f); }
+const tmLocks = new Map();
+function tmLocked(_id, fn) { const prev = tmLocks.get('all') || Promise.resolve(); const next = prev.catch(() => {}).then(fn); tmLocks.set('all', next.catch(() => {})); return next; } // ein Schloss für Sichern, Zurücksetzen und Aufräumen
+async function tmScan(p, cache) {
+  const dir = instanceDir(p), out = {};
+  const add = async (rel) => {
+    const abs = path.join(dir, rel); let st; try { st = await fsp.stat(abs); } catch { return; }
+    if (!st.isFile() || st.size > 64e6) return;
+    const k = `${rel}|${st.size}|${Math.floor(st.mtimeMs)}`;
+    out[rel] = { h: cache[k] || await sha1(abs), k };
+  };
+  const walk = async (rel, depth) => {
+    let ents; try { ents = await fsp.readdir(path.join(dir, rel), { withFileTypes: true }); } catch { return; }
+    for (const e of ents) { const r = `${rel}/${e.name}`; if (e.isDirectory()) { if (depth < 5) await walk(r, depth + 1); } else if (e.isFile()) await add(r); }
+  };
+  for (const root of ['mods', 'config']) { try { if (!fs.lstatSync(path.join(dir, root)).isSymbolicLink()) await walk(root, 0); } catch {} }
+  for (const f of TM_FILES) await add(f);
+  return out;
+}
+const tmManifest = (files) => Object.fromEntries(Object.entries(files).map(([r, f]) => [r, f.h]));
+function tmSame(a, b) { const ka = Object.keys(a || {}), kb = Object.keys(b || {}); return ka.length === kb.length && ka.every(k => a[k] === b[k]); }
+function tmDiff(a, b) {
+  const added = [], removed = [], changed = [], disabled = [], enabled = []; let config = 0;
+  for (const r of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
+    const x = a?.[r], y = b?.[r]; if (x === y) continue;
+    if (/^mods\/[^/]+$/.test(r)) { const n = r.slice(5); if (!x) added.push(n); else if (!y) removed.push(n); else changed.push(n); } else config++;
+  }
+  for (const n of [...added]) { if (n.endsWith('.disabled') && removed.includes(n.slice(0, -9))) { disabled.push(n.slice(0, -9)); added.splice(added.indexOf(n), 1); removed.splice(removed.indexOf(n.slice(0, -9)), 1); } else if (removed.includes(n + '.disabled')) { enabled.push(n); added.splice(added.indexOf(n), 1); removed.splice(removed.indexOf(n + '.disabled'), 1); } }
+  return { added, removed, changed, disabled, enabled, config };
+}
+let tmGcTimer = null;
+function tmGcSoon() {
+  clearTimeout(tmGcTimer);
+  tmGcTimer = setTimeout(() => tmLocked('gc', async () => {
+    try {
+      const used = new Set();
+      for (const f of await fsp.readdir(TM_DIR)) if (f.endsWith('.json')) { const d = JSON.parse(await fsp.readFile(path.join(TM_DIR, f), 'utf8')); for (const s of d.snaps || []) for (const h of Object.values(s.files)) used.add(h); }
+      const now = Date.now();
+      for (const o of await fsp.readdir(TM_OBJ)) { if (used.has(o) || o.endsWith('.tmp')) continue; const st = await fsp.stat(path.join(TM_OBJ, o)); if (now - st.mtimeMs > 10 * 60000) await fsp.rm(path.join(TM_OBJ, o), { force: true }); }
+    } catch {} // bei unlesbarer Liste lieber nichts löschen
+  }), 4000);
+}
+/** Schnappschuss, wenn sich seit dem letzten etwas geändert hat (force: immer) */
+function tmSnapshot(p, reason, force = false) { return tmLocked(p.id, () => tmSnapshotInner(p, reason, force)); }
+async function tmSnapshotInner(p, reason, force = false, keepId = null) {
+  {
+    const d = tmLoad(p.id); const files = await tmScan(p, d.cache);
+    d.cache = Object.fromEntries(Object.values(files).map(f => [f.k, f.h]));
+    const manifest = tmManifest(files), last = d.snaps[d.snaps.length - 1];
+    if (!Object.keys(manifest).length || (!force && last && tmSame(last.files, manifest))) { tmSave(p.id, d); return null; }
+    fs.mkdirSync(TM_OBJ, { recursive: true });
+    const todo = Object.entries(manifest).filter(([, h]) => !fs.existsSync(path.join(TM_OBJ, h))); let n = 0;
+    for (const [r, h] of todo) { const o = path.join(TM_OBJ, h); try { await fsp.copyFile(path.join(instanceDir(p), r), o + '.tmp'); await fsp.rename(o + '.tmp', o); } catch { delete manifest[r]; } if (todo.length > 20 && ++n % 10 === 0) send('launch:progress', { task: `Zeitmaschine sichert ${n}/${todo.length}`, percent: n / todo.length }); }
+    if (todo.length > 20) send('launch:progress', { task: 'Zeitmaschine: gesichert', percent: 0 });
+    const snap = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at: Date.now(), reason: String(reason || 'Schnappschuss').slice(0, 60), files: manifest };
+    d.snaps.push(snap); let pruned = false;
+    while (d.snaps.length > TM_MAX) { const i = d.snaps.findIndex(x => x.id !== keepId); d.snaps.splice(i, 1); pruned = true; }
+    tmSave(p.id, d); if (pruned) tmGcSoon();
+    return snap;
+  }
+}
+async function tmSnapshotQuiet(profileId, reason) { const p = profileById(profileId); if (!p) return; try { await tmSnapshot(p, reason); } catch {} }
+ipcMain.handle('tm:list', async (_e, profileId) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  const d = tmLoad(p.id); let pending = null;
+  try { const cur = tmManifest(await tmScan(p, d.cache)); const last = d.snaps[d.snaps.length - 1]; if (last && !tmSame(last.files, cur)) pending = tmDiff(last.files, cur); } catch {}
+  let size = 0; try { for (const o of await fsp.readdir(TM_OBJ)) size += (await fsp.stat(path.join(TM_OBJ, o))).size; } catch {}
+  const snaps = d.snaps.map((s, i) => ({ id: s.id, at: s.at, reason: s.reason, mods: Object.keys(s.files).filter(r => /^mods\/[^/]+\.jar$/.test(r)).length, files: Object.keys(s.files).length, diff: tmDiff(d.snaps[i - 1]?.files || {}, s.files), first: i === 0 })).reverse();
+  return { snaps, pending, size, running: running.has(p.id) };
+});
+ipcMain.handle('tm:snapshot', async (_e, { profileId, reason }) => { const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden'); const s = await tmSnapshot(p, reason || 'Von Hand gesichert', true); return !!s; });
+ipcMain.handle('tm:delete', async (_e, { profileId, id }) => tmLocked(profileId, async () => { const d = tmLoad(profileId); d.snaps = d.snaps.filter(s => s.id !== id); tmSave(profileId, d); tmGcSoon(); return true; }));
+ipcMain.handle('tm:restore', async (_e, { profileId, id }) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  return tmLocked(p.id, async () => {
+    if (running.has(p.id)) throw new Error('Bitte erst Minecraft für dieses Profil beenden');
+    const target = tmLoad(p.id).snaps.find(s => s.id === id); if (!target) throw new Error('Schnappschuss nicht gefunden');
+    await tmSnapshotInner(p, 'Vor dem Zurücksetzen', false, target.id);
+    const dir = instanceDir(p), d = tmLoad(p.id); const cur = await tmScan(p, d.cache);
+    const missing = Object.values(target.files).filter(h => !fs.existsSync(path.join(TM_OBJ, h))).length;
+    if (missing) throw new Error(`${missing} Dateien dieses Stands fehlen im Speicher – Zurücksetzen abgebrochen, nichts wurde verändert`);
+    let removedN = 0, written = 0;
+    for (const r of Object.keys(cur)) if (!(r in target.files)) { await fsp.rm(path.join(dir, r), { force: true }); removedN++; }
+    for (const [r, h] of Object.entries(target.files)) {
+      if (cur[r]?.h === h) continue;
+      const out = path.join(dir, r); if (!out.startsWith(dir + path.sep)) continue;
+      await fsp.mkdir(path.dirname(out), { recursive: true }); await fsp.copyFile(path.join(TM_OBJ, h), out); written++;
+    }
+    updateCache.clear?.();
+    await tmSnapshotInner(p, `Zurückgesetzt auf ${new Date(target.at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`, false, target.id);
+    bump('tmRestores');
+    return { removed: removedN, written, missing: 0 };
+  });
+});
+// Automatisch sichern, bevor etwas Größeres passiert
+wrapHandler('launch', async (orig, e, profileId, server) => { await tmSnapshotQuiet(profileId, 'Vor dem Spielstart'); return orig(e, profileId, server); });
+for (const [ch, reason] of [['mods:update', 'Vor einem Mod-Update'], ['content:remove', 'Vor dem Löschen einer Datei'], ['modsets:apply', 'Vor dem Wechsel des Mod-Sets'], ['browse:install', 'Vor einer Installation'], ['bundle:install', 'Vor der Ausstattung']])
+  wrapHandler(ch, async (orig, e, arg, ...rest) => { if (e && arg?.profileId && (ch !== 'content:remove' || arg.kind === 'mods')) await tmSnapshotQuiet(arg.profileId, reason); return orig(e, arg, ...rest); });
+
+// ---------- Profil-Codes: Profil als kurzer Text teilen ----------
+const b64u = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+const codeHash = (code) => crypto.createHash('sha1').update(String(code).trim()).digest('hex').slice(0, 16);
+function encodeShare(obj) { return 'LC1-' + b64u(zlib.deflateRawSync(Buffer.from(JSON.stringify(obj)), { level: 9 })); }
+function decodeShare(code) {
+  const m = /^LC1-([\w-]+)$/.exec(String(code || '').replace(/\s+/g, '')); if (!m) throw new Error('Das ist kein LellekClient-Code (er beginnt mit „LC1-“)');
+  let j; try { j = JSON.parse(zlib.inflateRawSync(unb64u(m[1])).toString('utf8')); } catch { throw new Error('Der Code ist unvollständig oder beschädigt'); }
+  if (!j || typeof j.mc !== 'string' || !/^[\w.\-]{1,24}$/.test(j.mc)) throw new Error('Der Code enthält keine Minecraft-Version');
+  for (const k of ['m', 'r', 's']) j[k] = (Array.isArray(j[k]) ? j[k] : []).filter(x => /^[A-Za-z0-9]{8}$/.test(x)).slice(0, 600);
+  j.l = ['fabric', 'forge', 'neoforge'].includes(j.l) ? j.l : ''; j.lv = String(j.lv || ''); if (j.lv && !/^[\w.+-]{1,40}$/.test(j.lv)) throw new Error('Ungültige Loader-Version im Code'); j.n = String(j.n || 'Geteiltes Profil').replace(/[\u0000-\u001f]/g, '').slice(0, 40); j.i = String(j.i || '').slice(0, 4);
+  return j;
+}
+async function buildShareCode(p) {
+  const dir = instanceDir(p), entries = [];
+  for (const [kind, key] of [['mods', 'm'], ['resourcepacks', 'r'], ['shaderpacks', 's']]) {
+    const d = path.join(dir, kind); let list = []; try { list = await fsp.readdir(d); } catch {}
+    for (const f of list) if (/\.(jar|zip)$/i.test(f) && !/^LellekHUD/i.test(f)) { try { entries.push({ key, f, sha1: await sha1(path.join(d, f)) }); } catch {} }
+  }
+  let known = {};
+  if (entries.length) {
+    const r = await fetch('https://api.modrinth.com/v2/version_files', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'LellekClient' }, body: JSON.stringify({ hashes: entries.map(e => e.sha1), algorithm: 'sha1' }), signal: withTimeout(20000) });
+    if (!r.ok) throw new Error(`Modrinth nicht erreichbar (${r.status})`);
+    known = await r.json();
+  }
+  const obj = { v: 1, n: p.name, mc: p.version, l: p.loader || '', lv: p.loaderVersion || '', i: p.icon || '', mem: p.memory || 4, m: [], r: [], s: [] };
+  const missing = [];
+  for (const e of entries) { const v = known[e.sha1]; if (v?.id) { if (!obj[e.key].includes(v.id)) obj[e.key].push(v.id); } else missing.push(e.f); }
+  const code = encodeShare(obj);
+  return { code, matched: obj.m.length + obj.r.length + obj.s.length, missing, name: p.name, version: p.version, loader: p.loader || '', mods: obj.m.length };
+}
+async function modrinthVersionsByIds(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 200) { const part = ids.slice(i, i + 200); out.push(...await getJson(`https://api.modrinth.com/v2/versions?ids=${encodeURIComponent(JSON.stringify(part))}`)); }
+  return out;
+}
+ipcMain.handle('share:create', async (_e, profileId) => { const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden'); const r = await buildShareCode(p); bump('shares'); return r; });
+ipcMain.handle('share:preview', async (_e, code) => {
+  const j = decodeShare(code); const ids = [...j.m, ...j.r, ...j.s];
+  const versions = ids.length ? await modrinthVersionsByIds(ids) : [];
+  const projIds = [...new Set(versions.map(v => v.project_id))];
+  let projects = []; if (projIds.length) { try { for (let i = 0; i < projIds.length; i += 200) projects.push(...await getJson(`https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(JSON.stringify(projIds.slice(i, i + 200)))}`)); } catch {} }
+  const byP = Object.fromEntries(projects.map(x => [x.id, x]));
+  const kindOf = (id) => j.m.includes(id) ? 'mods' : j.r.includes(id) ? 'resourcepacks' : 'shaderpacks';
+  const items = versions.map(v => { const pr = byP[v.project_id]; const f = (v.files || []).find(x => x.primary) || v.files?.[0]; return { kind: kindOf(v.id), title: pr?.title || f?.filename || v.name, icon: pr?.icon_url || null, size: f?.size || 0, version: v.version_number }; }).sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
+  const existing = store.shareImports?.[codeHash(code)]; const have = existing && profileById(existing);
+  return { name: j.n, version: j.mc, loader: j.l, loaderVersion: j.lv, icon: j.i || '', items, unknown: ids.length - versions.length, size: items.reduce((a, x) => a + x.size, 0), existing: have ? { id: have.id, name: have.name } : null };
+});
+async function importShareCode(code, name) {
+  const j = decodeShare(code);
+  if (j.l && !j.lv) throw new Error('Im Code fehlt die Loader-Version');
+  const ids = [...j.m, ...j.r, ...j.s];
+  const versions = ids.length ? await modrinthVersionsByIds(ids) : [];
+  const p = await newProfileFrom(String(name || j.n).slice(0, 40), j.mc, j.l, j.lv);
+  p.icon = j.i || p.icon; p.memory = Math.max(2, Math.min(16, Number(j.mem) || 4)); p.installed = {};
+  let done = 0, failed = 0;
+  await pool(versions, 4, async (v) => {
+    const kind = j.m.includes(v.id) ? 'mods' : j.r.includes(v.id) ? 'resourcepacks' : 'shaderpacks';
+    const f = kind === 'mods' ? pickFile(v, p.loader) : ((v.files || []).find(x => x.primary) || v.files?.[0]);
+    try { if (!f) throw new Error('keine Datei'); f.filename = path.basename(f.filename); await download(f.url, path.join(kindDir(p.id, kind), f.filename)); if (kind === 'mods') p.installed[v.project_id] = f.filename; }
+    catch (e) { failed++; send('launch:log', { line: `Profil-Code: ${f?.filename || v.id} konnte nicht geladen werden (${e.message})` }); }
+    send('launch:progress', { task: `Profil wird eingerichtet ${++done}/${versions.length}`, percent: done / Math.max(1, versions.length) });
+  });
+  store.shareImports ??= {}; store.shareImports[codeHash(code)] = p.id; saveStore();
+  send('launch:progress', { task: 'Fertig', percent: 1 });
+  return { id: p.id, name: p.name, profiles: store.profiles, files: versions.length, failed, unknown: ids.length - versions.length };
+}
+ipcMain.handle('share:import', (_e, { code, name }) => importShareCode(code, name));
+
+// ---------- Session-Rückblick: Tode, Kills, Fortschritte, Screenshots aus dem Spiel-Log ----------
+const sessionRecap = new Map(); // profileId → Zwischenstand
+const newRecap = () => ({ player: null, deaths: 0, causes: {}, kills: 0, victims: {}, advancements: [], chats: 0, screenshots: 0 });
+const DEATH_RE = /^(?:was (?:slain|shot|killed|blown up|fireballed|pummeled|squashed|squished|impaled|skewered|stung|poked to death|pricked to death|struck by lightning|obliterated|doomed to fall|frozen to death|knocked into the void|roasted|burnt|sniped|smashed|stomped)|blew up|drowned|died|fell |hit the ground too hard|burned to death|went up in flames|walked into |tried to swim in lava|starved to death|suffocated|experienced kinetic energy|froze to death|withered away|discovered the floor was lava|went off with a bang|left the confines of this world|didn't want to live)/;
+const KILL_RE = /^(\w{2,16}) (?:was (?:slain|shot|killed|blown up|fireballed|pummeled|impaled|skewered|knocked into the void|doomed to fall|struck by lightning|obliterated)|drowned|burned to death|tried to swim in lava|fell|hit the ground too hard|walked into)[^\n]*? (?:by|escape|fighting) (\w{2,16})(?:\W|$)/;
+function recapLine(p, line) {
+  let r = sessionRecap.get(p.id); if (!r) { r = newRecap(); sessionRecap.set(p.id, r); }
+  let m;
+  if (!r.player && (m = /Setting user: (\w{2,16})/.exec(line))) { r.player = m[1]; return; }
+  if (/Saved screenshot as /.test(line)) { r.screenshots++; return; }
+  const ci = line.indexOf('[CHAT] '); if (ci < 0 || !r.player) return;
+  const msg = line.slice(ci + 7).replace(/§./g, '').trim(), me = r.player;
+  if (msg.startsWith(`<${me}> `)) { r.chats++; return; }
+  if ((m = new RegExp(`^${me} has (?:made the advancement|completed the challenge|reached the goal|just earned the achievement) \\[(.+?)\\]`).exec(msg))) { if (r.advancements.length < 60 && !r.advancements.includes(m[1])) r.advancements.push(m[1]); return; }
+  if (msg.startsWith(me + ' ') && DEATH_RE.test(msg.slice(me.length + 1))) {
+    r.deaths++; const rest = msg.slice(me.length + 1); const by = (/ by (.+?)(?: using .*)?$/.exec(rest) || [])[1];
+    const key = (by || rest.replace(/ (whilst|while) .*$/, '')).slice(0, 40); r.causes[key] = (r.causes[key] || 0) + 1; return;
+  }
+  if ((m = KILL_RE.exec(msg)) && m[2] === me && m[1] !== me) { r.kills++; r.victims[m[1]] = (r.victims[m[1]] || 0) + 1; }
+}
+{ const _t = trackGameLog; trackGameLog = function (p, line) { _t(p, line); try { recapLine(p, String(line)); } catch {} }; }
+{ const _r = resetSessionTracking; resetSessionTracking = function (id) { _r(id); sessionRecap.delete(id); }; }
+const topOf = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+{
+  const _rs = recordSession;
+  recordSession = function (p, start, code) {
+    _rs(p, start, code);
+    const r = sessionRecap.get(p.id) || newRecap(); sessionRecap.delete(p.id);
+    const s = store.sessions?.[store.sessions.length - 1]; if (!s || s.profileId !== p.id || s.start !== start) return;
+    s.recap = { player: r.player, deaths: r.deaths, kills: r.kills, advancements: r.advancements.slice(0, 30), chats: r.chats, screenshots: r.screenshots, topDeath: topOf(r.causes), topVictim: topOf(r.victims) };
+    const before = new Set(Object.keys(store.achievements || {}));
+    setTimeout(() => {
+      checkAchievements();
+      const unlocked = Object.keys(store.achievements || {}).filter(k => !before.has(k)).map(k => ACHIEVEMENTS.find(a => a.id === k)).filter(Boolean).map(a => ({ id: a.id, icon: a.icon, title: a.title }));
+      if (s.end - s.start >= 60000 && store.settings.sessionRecap !== false) send('session:recap', { ...s, unlocked, level: levelInfo() });
+    }, 300);
+  };
+}
+
+// ---------- Level & Erfolge ----------
+const ACHIEVEMENTS = [
+  { id: 'first', icon: '🎮', title: 'Erster Start', desc: 'Minecraft mit LellekClient gestartet', test: m => m.sessions >= 1 },
+  { id: 'h10', icon: '⏱️', title: 'Warmgespielt', desc: '10 Stunden Spielzeit', goal: m => [m.hours, 10] },
+  { id: 'h50', icon: '🔥', title: 'Dauerbrenner', desc: '50 Stunden Spielzeit', goal: m => [m.hours, 50] },
+  { id: 'h100', icon: '💎', title: 'Veteran', desc: '100 Stunden Spielzeit', goal: m => [m.hours, 100] },
+  { id: 'h500', icon: '👑', title: 'Legende', desc: '500 Stunden Spielzeit', goal: m => [m.hours, 500] },
+  { id: 'marathon', icon: '🏃', title: 'Marathon', desc: 'Eine Sitzung über 4 Stunden', goal: m => [m.longestH, 4] },
+  { id: 'streak7', icon: '📅', title: 'Eine Woche am Stück', desc: 'An 7 Tagen hintereinander gespielt', goal: m => [m.bestStreak, 7] },
+  { id: 'night', icon: '🦉', title: 'Nachteule', desc: 'Zwischen 2 und 5 Uhr nachts gespielt', test: m => m.night },
+  { id: 'versions5', icon: '🧭', title: 'Zeitreisender', desc: '5 verschiedene Minecraft-Versionen gespielt', goal: m => [m.versions, 5] },
+  { id: 'loaders', icon: '🧩', title: 'Allrounder', desc: 'Vanilla, Fabric und Forge oder NeoForge gespielt', goal: m => [m.loaders, 3] },
+  { id: 'mods50', icon: '📦', title: 'Modder', desc: '50 Mods installiert (alle Profile zusammen)', goal: m => [m.mods, 50] },
+  { id: 'servers10', icon: '🌍', title: 'Weltenbummler', desc: 'Auf 10 verschiedenen Servern gewesen', goal: m => [m.servers, 10] },
+  { id: 'friend1', icon: '🤝', title: 'Nicht allein', desc: 'Den ersten Freund hinzugefügt', goal: m => [m.friends, 1] },
+  { id: 'friend10', icon: '🎉', title: 'Beliebt', desc: '10 Freunde', goal: m => [m.friends, 10] },
+  { id: 'party', icon: '🥳', title: 'Party-Starter', desc: 'Mit dem Party-Modus gemeinsam gestartet', goal: m => [m.partyLaunches, 1] },
+  { id: 'chat', icon: '💬', title: 'Quasselstrippe', desc: '100 Nachrichten im Launcher-Chat', goal: m => [m.chatSent, 100] },
+  { id: 'share', icon: '🔗', title: 'Großzügig', desc: 'Ein Profil per Code geteilt', goal: m => [m.shares, 1] },
+  { id: 'host', icon: '🖥️', title: 'Gastgeber', desc: 'Einen eigenen Server gestartet', goal: m => [m.serverStarts, 1] },
+  { id: 'adv25', icon: '🏆', title: 'Fortschritt', desc: '25 Fortschritte erreicht', goal: m => [m.advancements, 25] },
+  { id: 'kills100', icon: '⚔️', title: 'Kämpfer', desc: '100 Gegner besiegt', goal: m => [m.kills, 100] },
+  { id: 'deaths100', icon: '💀', title: 'Unsterblich? Nö.', desc: '100-mal gestorben', goal: m => [m.deaths, 100] },
+  { id: 'shots50', icon: '📸', title: 'Fotograf', desc: '50 Screenshots gemacht', goal: m => [m.screenshots, 50] },
+  { id: 'comeback', icon: '🩹', title: 'Stehaufmännchen', desc: 'Nach einem Absturz sofort weitergespielt', test: m => m.comeback },
+  { id: 'timemachine', icon: '⏪', title: 'Zeitreise', desc: 'Ein Profil mit der Zeitmaschine zurückgesetzt', goal: m => [m.tmRestores, 1] },
+  { id: 'autopilot', icon: '🚀', title: 'Turbo', desc: 'Den Performance-Autopiloten benutzt', goal: m => [m.autopilot, 1] },
+];
+function achievementMetrics() {
+  const S = store.sessions || [], c = store.counters || {};
+  const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  const days = [...new Set(S.map(s => dayKey(s.start)))].map(k => { const [y, mo, d] = k.split('-').map(Number); return new Date(y, mo, d).getTime(); }).sort((a, b) => a - b);
+  let best = 0, run = 0; for (let i = 0; i < days.length; i++) { run = i && Math.round((days[i] - days[i - 1]) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); }
+  let mods = 0; for (const p of store.profiles) { try { mods += fs.readdirSync(path.join(instanceDir(p), 'mods')).filter(f => /\.jar$/i.test(f)).length; } catch {} }
+  const loaders = new Set(S.map(s => s.loader === 'neoforge' ? 'forge' : (s.loader || 'vanilla')));
+  let comeback = false; for (let i = 1; i < S.length; i++) if (S[i - 1].code !== 0 && S[i].start - S[i - 1].end < 10 * 60000 && S[i].end - S[i].start > 10 * 60000) comeback = true;
+  const sum = (k) => S.reduce((a, s) => a + (s.recap?.[k] || 0), 0);
+  let friends = 0; try { for (const l of Object.values(store.friendsByAccount || {})) friends = Math.max(friends, l.length); } catch {}
+  return {
+    sessions: S.length, hours: Math.floor(store.profiles.reduce((a, p) => a + (p.playtimeMs || 0), 0) / 36e5),
+    longestH: Math.floor(S.reduce((a, s) => Math.max(a, s.end - s.start), 0) / 36e5 * 10) / 10, bestStreak: best,
+    night: S.some(s => { const h = new Date(s.start).getHours(), h2 = new Date(s.end).getHours(); return (h >= 2 && h < 5) || (h2 >= 2 && h2 < 5 && s.end - s.start < 12 * 36e5); }),
+    versions: new Set(S.map(s => s.version)).size, loaders: loaders.size, mods, servers: new Set(S.flatMap(s => s.servers || [])).size, friends,
+    partyLaunches: c.partyLaunches || 0, chatSent: c.chatSent || 0, shares: c.shares || 0, serverStarts: c.serverStarts || 0, tmRestores: c.tmRestores || 0, autopilot: c.autopilot || 0,
+    advancements: S.reduce((a, s) => a + (s.recap?.advancements?.length || 0), 0), kills: sum('kills'), deaths: sum('deaths'), screenshots: sum('screenshots'), comeback,
+  };
+}
+function levelFor(xp) { const level = Math.floor(Math.sqrt(xp / 40)) + 1; const cur = 40 * (level - 1) ** 2, next = 40 * level ** 2; return { level, xp, cur, next, progress: (xp - cur) / (next - cur) }; }
+function levelInfo() { const minutes = Math.floor(store.profiles.reduce((a, p) => a + (p.playtimeMs || 0), 0) / 60000); const n = Object.keys(store.achievements || {}).length; return { ...levelFor(minutes + n * 100), unlocked: n, total: ACHIEVEMENTS.length }; }
+let achInit = false;
+function checkAchievements() {
+  let m; try { m = achievementMetrics(); } catch { return; }
+  const first = !store.achievements; store.achievements ??= {};
+  const fresh = [];
+  for (const a of ACHIEVEMENTS) {
+    if (store.achievements[a.id]) continue;
+    const ok = a.test ? a.test(m) : (() => { const [v, g] = a.goal(m); return v >= g; })();
+    if (ok) { store.achievements[a.id] = Date.now(); fresh.push(a); }
+  }
+  if (!fresh.length) return;
+  saveStore();
+  if (first || !achInit) return; // beim allerersten Abgleich still freischalten
+  for (const a of fresh) { send('ach:unlocked', { id: a.id, icon: a.icon, title: a.title, desc: a.desc, level: levelInfo() }); notify('Erfolg freigeschaltet', `${a.icon} ${a.title} – ${a.desc}`); }
+  publishPresence?.(true);
+}
+app.whenReady().then(() => setTimeout(() => { checkAchievements(); achInit = true; }, 3000));
+ipcMain.handle('ach:get', () => {
+  let m = {}; try { m = achievementMetrics(); } catch {}
+  return { ...levelInfo(), badge: store.settings.badge || null, list: ACHIEVEMENTS.map(a => { const g = a.goal ? a.goal(m) : null; return { id: a.id, icon: a.icon, title: a.title, desc: a.desc, at: store.achievements?.[a.id] || null, progress: g ? Math.min(1, g[0] / g[1]) : null, value: g ? `${Math.min(g[0], g[1])}/${g[1]}` : null }; }) };
+});
+ipcMain.handle('ach:setBadge', (_e, id) => { const a = ACHIEVEMENTS.find(x => x.id === id); store.settings.badge = a && store.achievements?.[a.id] ? `${a.icon} ${a.title}` : null; saveStore(); publishPresence?.(true); return store.settings.badge; });
+wrapHandler('server:start', async (orig, e, ...a) => { const r = await orig(e, ...a); bump('serverStarts'); return r; });
+{ const _mp = myPresence; myPresence = function () { const out = _mp(); try { out.level = levelInfo().level; out.badge = store.settings.badge || null; } catch {} return out; }; }
+
+// ---------- Chat mit Freunden ----------
+let chatOpenFor = null;
+function chatBox() { const id = myAccountId(); if (!id) return null; store.chatByAccount ??= {}; return (store.chatByAccount[id] ??= { threads: {}, unread: {} }); }
+function friendName(uuid) { return myFriends().find(f => f.uuid === uuid)?.name || friendState[uuid]?.name || '?'; }
+function addIncoming(list) {
+  const c = chatBox(); if (!c || !list?.length) return;
+  for (const m of list) {
+    if (social().blocked.some(b => b.uuid === m.from)) continue;
+    const t = (c.threads[m.from] ??= []); if (t.some(x => x.id === m.id)) continue;
+    const str = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
+    const data = m.kind === 'profile' && m.data ? { code: str(m.data.code, 6000), name: str(m.data.name, 40), version: str(m.data.version, 24), loader: str(m.data.loader, 12), mods: Number(m.data.mods) || 0 } : m.kind === 'server' && m.data ? { ip: str(m.data.ip, 100), name: str(m.data.name, 60) } : null;
+    t.push({ id: String(m.id), from: m.from, text: str(m.text, 1000), kind: data ? m.kind : 'text', data, at: Number(m.at) || Date.now(), in: true }); if (t.length > 300) t.splice(0, t.length - 300);
+    const open = chatOpenFor === m.from && win?.isFocused();
+    if (!open) c.unread[m.from] = (c.unread[m.from] || 0) + 1;
+    const nick = myFriends().find(f => f.uuid === m.from)?.nick || m.name;
+    if (!open && store.settings.chatNotify !== false) notify(nick, m.kind === 'profile' ? `hat dir ein Profil geschickt: ${m.data?.name || ''}` : m.kind === 'server' ? `schlägt einen Server vor: ${m.data?.ip || ''}` : String(m.text).slice(0, 140));
+    send('chat:message', { ...t[t.length - 1], name: nick });
+  }
+  saveStore(); send('chat:unread', chatUnread());
+}
+function chatUnread() { const c = chatBox(); return c ? Object.values(c.unread).reduce((a, n) => a + n, 0) : 0; }
+ipcMain.handle('chat:threads', () => {
+  const c = chatBox(); if (!c) return [];
+  return Object.entries(c.threads).map(([uuid, t]) => ({ uuid, name: friendName(uuid), last: t[t.length - 1] || null, unread: c.unread[uuid] || 0 })).filter(x => x.last).sort((a, b) => b.last.at - a.last.at);
+});
+ipcMain.handle('chat:thread', (_e, uuid) => { const c = chatBox(); if (!c) return []; chatOpenFor = uuid || null; if (uuid && c.unread[uuid]) { delete c.unread[uuid]; saveStore(); send('chat:unread', chatUnread()); } return (c.threads[uuid] || []).slice(-200); });
+ipcMain.handle('chat:close', () => { chatOpenFor = null; return true; });
+ipcMain.handle('chat:unread', () => chatUnread());
+ipcMain.handle('chat:send', async (_e, { to, text, kind, data }) => {
+  const c = chatBox(); if (!c) throw new Error('Bitte zuerst anmelden');
+  text = String(text || '').trim().slice(0, 1000); if (!text && !data) return null;
+  const r = await presenceCall('POST', '/v1/chat/send', { to, text, kind: kind || 'text', data: data || null });
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Senden fehlgeschlagen (${r.status})`);
+  const m = { id: d.id, from: dashUuid(currentAuth.profile.id), text, kind: kind || 'text', data: data || null, at: d.at || Date.now(), in: false };
+  const t = (c.threads[to] ??= []); t.push(m); if (t.length > 300) t.splice(0, t.length - 300);
+  store.counters ??= {}; store.counters.chatSent = (store.counters.chatSent || 0) + 1; saveStore(); if (store.counters.chatSent === 100) setTimeout(checkAchievements, 100);
+  return m;
+});
+ipcMain.handle('chat:clear', (_e, uuid) => { const c = chatBox(); if (c) { delete c.threads[uuid]; delete c.unread[uuid]; saveStore(); } return true; });
+
+// ---------- Party: gemeinsam mit demselben Profil auf denselben Server ----------
+let partyState = null, partyInvites = [], partyLaunchHandled = null, serverOffset = 0;
+const seenPartyInvites = new Set();
+function applySocial(d) {
+  if (!d) return;
+  if (Array.isArray(d.messages) && d.messages.length) addIncoming(d.messages);
+  if ('party' in d) {
+    const before = JSON.stringify(partyState); partyState = d.party || null;
+    if (partyState) serverOffset = partyState.serverTime - Date.now();
+    if (JSON.stringify(partyState) !== before) send('party:update', partyView());
+    handlePartyLaunch();
+  }
+  if (Array.isArray(d.partyInvites)) {
+    const before = partyInvites.map(i => i.id).join(); partyInvites = d.partyInvites;
+    for (const i of partyInvites) if (!seenPartyInvites.has(i.id + i.at)) { seenPartyInvites.add(i.id + i.at); notifyFriends(`${i.byName} lädt dich in eine Party ein${i.plan?.server ? ' – ' + i.plan.server : ''}`); send('party:invite', i); }
+    if (partyInvites.map(i => i.id).join() !== before) send('party:update', partyView());
+  }
+}
+friendsHook = (d) => applySocial(d);
+function partyProfileId(P = partyState) {
+  if (!P?.plan) return null;
+  if (P.leader === P.me && store.partyProfile && profileById(store.partyProfile)) return store.partyProfile;
+  if (P.plan.code) { const id = store.shareImports?.[codeHash(P.plan.code)]; if (id && profileById(id)) return id; }
+  const own = store.partyChoice?.[P.id]; if (own && profileById(own)) return own;
+  if (!P.plan.mods && !P.plan.loader) { const v = store.profiles.find(p => p.version === P.plan.version && !p.loader); if (v) return v.id; }
+  return null;
+}
+function partyView() { const id = partyProfileId(); return { party: partyState, invites: partyInvites, profileId: id, profileName: id ? profileById(id)?.name : null }; }
+function handlePartyLaunch() {
+  const P = partyState; const key = P ? `${P.id}:${P.launchId}` : null;
+  if (!P?.launchAt || key === partyLaunchHandled) return;
+  if (P.launchAt < P.serverTime - 15000) return; // alter Start (z. B. nach Neustart) – nicht nachholen
+  const me = P.members.find(m => m.uuid === P.me); if (!me?.ready) return;
+  partyLaunchHandled = key;
+  const wait = Math.max(0, P.launchAt - (Date.now() + serverOffset));
+  send('party:countdown', { inMs: wait, server: P.plan?.server || null });
+  setTimeout(async () => {
+    if (partyState?.launchId !== P.launchId || !partyState?.launchAt) { send('party:launched', { ok: false, error: 'Start abgebrochen' }); return; }
+    try {
+      const id = partyProfileId(P); if (!id) throw new Error('Kein Party-Profil – erst „Bereit“ drücken');
+      if (!running.has(id)) await handlers['launch'](null, id, P.plan?.server || undefined);
+      bump('partyLaunches'); send('party:launched', { ok: true, profileId: id });
+    } catch (e) { send('party:launched', { ok: false, error: e.message }); }
+  }, wait);
+}
+async function socialPoll() {
+  if (!currentAuth) return partyView();
+  try { const r = await presenceCall('GET', '/v1/social'); if (r.ok) applySocial(await r.json()); } catch {}
+  return partyView();
+}
+async function partyAction(act, payload) {
+  const r = await presenceCall('POST', `/v1/party/${act}`, payload || {}); const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `Party-Fehler (${r.status})`);
+  applySocial(d); return partyView();
+}
+setInterval(() => { if (partyState || chatOpenFor) socialPoll(); }, 4000);
+ipcMain.handle('social:poll', () => socialPoll());
+ipcMain.handle('party:get', () => partyView());
+ipcMain.handle('party:create', () => partyAction('create'));
+ipcMain.handle('party:invite', async (_e, uuid) => { if (!partyState) await partyAction('create'); return partyAction('invite', { uuid }); });
+ipcMain.handle('party:join', (_e, id) => partyAction('join', { id }));
+ipcMain.handle('party:decline', (_e, id) => partyAction('decline', { id }));
+ipcMain.handle('party:leave', async () => { const v = await partyAction('leave'); return v; });
+ipcMain.handle('party:kick', (_e, uuid) => partyAction('kick', { uuid }));
+ipcMain.handle('party:promote', (_e, uuid) => partyAction('promote', { uuid }));
+ipcMain.handle('party:launch', (_e, seconds) => partyAction('launch', { seconds: seconds || 10 }));
+ipcMain.handle('party:cancel', () => partyAction('cancel'));
+ipcMain.handle('party:plan', async (_e, { profileId, server }) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  if (!partyState) await partyAction('create');
+  send('launch:progress', { task: 'Party-Profil wird vorbereitet', percent: 0.3 });
+  const s = await buildShareCode(p);
+  store.partyProfile = p.id; saveStore();
+  send('launch:progress', { task: 'Bereit', percent: 0 });
+  return partyAction('plan', { name: p.name, code: s.code, server: String(server || '').trim() || null, version: p.version, loader: p.loader || '', mods: s.mods });
+});
+ipcMain.handle('party:choose', (_e, profileId) => { if (!partyState) return partyView(); store.partyChoice ??= {}; store.partyChoice[partyState.id] = profileId; saveStore(); return partyView(); });
+ipcMain.handle('party:ready', async (_e, ready) => {
+  if (!partyState) throw new Error('Du bist in keiner Party');
+  if (ready && !partyProfileId()) {
+    const code = partyState.plan?.code; if (!code) throw new Error('Wähle ein passendes Profil');
+    await importShareCode(code, `Party: ${partyState.plan.name}`.slice(0, 40));
+  }
+  return partyAction('ready', { ready: !!ready });
+});
+
+// ---------- Server-Radar: Ping mit SRV-Auflösung, parallel ----------
+async function resolveMc(address) {
+  const [host, portStr] = String(address).trim().split(':');
+  if (portStr) return { host, port: Number(portStr) || 25565 };
+  try { const srv = await dnsp.resolveSrv(`_minecraft._tcp.${host}`); if (srv?.[0]) return { host: srv[0].name, port: srv[0].port }; } catch {}
+  return { host, port: 25565 };
+}
+ipcMain.handle('radar:scan', async (_e, list) => {
+  const out = {}; const ips = [...new Set((Array.isArray(list) ? list : []).map(String).filter(Boolean))].slice(0, 40);
+  await pool(ips, 8, async (ip) => { try { const { host, port } = await resolveMc(ip); out[ip] = await pingServer(host, port, 5000); } catch (e) { out[ip] = { online: false, error: e.message }; } });
+  return out;
+});
+
+// ---------- Performance-Autopilot ----------
+const PERF_MODS = {
+  fabric: [['sodium', 'Sodium', 'Neue Grafik-Engine – oft doppelte bis dreifache FPS'], ['lithium', 'Lithium', 'Schnellere Spiellogik (Mobs, Redstone, Chunks)'], ['ferrite-core', 'FerriteCore', 'Deutlich weniger RAM-Verbrauch'], ['entityculling', 'EntityCulling', 'Verdeckte Tiere und Truhen werden nicht gezeichnet'], ['immediatelyfast', 'ImmediatelyFast', 'Schnelleres HUD, Text und Partikel'], ['modernfix', 'ModernFix', 'Schnellerer Start, weniger RAM'], ['dynamic-fps', 'Dynamic FPS', 'Spart Leistung, wenn das Spiel im Hintergrund ist']],
+  neoforge: [['sodium', 'Sodium', 'Neue Grafik-Engine – oft doppelte FPS'], ['ferrite-core', 'FerriteCore', 'Deutlich weniger RAM-Verbrauch'], ['entityculling', 'EntityCulling', 'Verdeckte Objekte werden nicht gezeichnet'], ['immediatelyfast', 'ImmediatelyFast', 'Schnelleres HUD und Text'], ['modernfix', 'ModernFix', 'Schnellerer Start, weniger RAM'], ['dynamic-fps', 'Dynamic FPS', 'Spart Leistung im Hintergrund']],
+  forge: [['embeddium', 'Embeddium', 'Sodium-Grafik-Engine für Forge'], ['ferrite-core', 'FerriteCore', 'Weniger RAM-Verbrauch'], ['entityculling', 'EntityCulling', 'Verdeckte Objekte werden nicht gezeichnet'], ['modernfix', 'ModernFix', 'Schnellerer Start, weniger RAM']],
+};
+const PERF_CLASH = { sodium: /optifine|embeddium|rubidium/i, embeddium: /optifine|sodium|rubidium/i };
+const PERF_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1';
+const perfPlans = new Map();
+ipcMain.handle('perf:plan', async (_e, profileId) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  const totalGb = Math.round(os.totalmem() / 1073741824), threads = os.cpus().length;
+  let jars = []; try { jars = (await fsp.readdir(path.join(instanceDir(p), 'mods'))).filter(f => /\.jar$/i.test(f)); } catch {}
+  const n = jars.length, cap = Math.max(2, Math.floor(totalGb / 2));
+  const want = !p.loader ? Math.min(4, Math.max(2, Math.floor(totalGb / 4))) : n > 150 ? 8 : n > 80 ? 6 : n > 30 ? 5 : 4;
+  const memory = Math.max(2, Math.min(cap, want));
+  const others = (p.jvmArgs || '').split(/\s+/).filter(a => a && !/^-XX:/.test(a) && !/^-Xm[sx]/.test(a));
+  const jvm = [...others, PERF_JVM].join(' ').trim();
+  const list = PERF_MODS[p.loader] || [];
+  const mods = [];
+  await pool(list, 4, async ([slug, title, why]) => {
+    const installed = jars.some(f => f.toLowerCase().replace(/[^a-z]/g, '').startsWith(slug.replace(/[^a-z]/g, ''))) || !!(p.installed && Object.values(p.installed).some(f => f && f.toLowerCase().startsWith(slug.split('-')[0])));
+    const clash = PERF_CLASH[slug] && jars.find(f => PERF_CLASH[slug].test(f));
+    let version = null; if (!installed && !clash) { try { version = pickVersion(await modrinthVersions(slug, p, 'mods')); } catch {} }
+    mods.push({ slug, title, why, installed, clash: clash || null, available: !!version, version: version?.version_number || null, _v: version });
+  });
+  mods.sort((a, b) => list.findIndex(x => x[0] === a.slug) - list.findIndex(x => x[0] === b.slug));
+  perfPlans.set(p.id, Object.fromEntries(mods.filter(m => m._v).map(m => [m.slug, m._v])));
+  const tips = [];
+  if (!p.loader) tips.push('Vanilla-Profil: Performance-Mods brauchen Fabric oder NeoForge. Tipp: Profil duplizieren und als Fabric-Profil anlegen.');
+  if (p.loader === 'forge' && mcMinor(p.version) <= 12) tips.push(`Für ${p.version} gibt es die modernen Performance-Mods nicht auf Modrinth – LellekHUD und OptiFine sind hier die beste Wahl.`);
+  if (totalGb < 8) tips.push(`Nur ${totalGb} GB RAM: Browser und Discord-Overlay beim Spielen schließen.`);
+  if (threads < 4) tips.push('Wenige CPU-Kerne: Simulationsdistanz im Spiel auf 5–6 stellen.');
+  return { profile: { id: p.id, name: p.name, version: p.version, loader: p.loader || '' }, ramGb: totalGb, threads, modCount: n,
+    memory: { current: p.memory || store.settings.memory || 4, recommended: memory, max: cap }, jvm: { current: p.jvmArgs || '', recommended: jvm, changed: (p.jvmArgs || '').trim() !== jvm },
+    mods: mods.map(({ _v, ...m }) => m), tips };
+});
+ipcMain.handle('perf:apply', async (_e, { profileId, memory, jvm, mods }) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  if (running.has(p.id)) throw new Error('Bitte erst Minecraft für dieses Profil beenden');
+  await tmSnapshotQuiet(p.id, 'Vor dem Performance-Autopiloten');
+  const plan = perfPlans.get(p.id) || {}; const done = [], failed = [];
+  if (memory) p.memory = Math.max(1, Math.min(32, Number(memory)));
+  if (typeof jvm === 'string') p.jvmArgs = jvm.trim();
+  const wanted = (mods || []).filter(s => plan[s]);
+  if (wanted.length) await ensureFabricApi(p);
+  let i = 0;
+  for (const slug of wanted) {
+    send('launch:progress', { task: `Autopilot: ${slug}`, percent: ++i / wanted.length });
+    try { const files = await installModrinthVersion(p, 'mods', plan[slug], new Set()); done.push(...files); } catch (e) { failed.push(`${slug}: ${e.message}`); }
+  }
+  saveStore(); send('launch:progress', { task: 'Autopilot fertig', percent: 1 });
+  bump('autopilot');
+  return { done, failed, memory: p.memory, profiles: store.profiles };
+});
+
+// ---------- Startseite: alles Wichtige in einem Abruf ----------
+ipcMain.handle('home:summary', () => {
+  const S = store.sessions || [];
+  const last = [...S].reverse().find(s => s.end - s.start > 60000) || null;
+  const lastServers = [...new Set([...S].reverse().flatMap(s => s.servers || []))].slice(0, 4);
+  return { level: levelInfo(), lastSession: last, lastServers, unread: chatUnread(), party: partyView() };
+});

@@ -77,7 +77,7 @@ function applyUi() {
     bg.firstChild.style.background = `rgba(0,0,0,${(ui.dim ?? 45) / 100})`;
   } else if (bg) bg.remove();
   hero.classList.toggle('has-bg', !!ui.bgData);
-  $('.wordmark span').textContent = (ui.title || '').trim() || 'LellekClient';
+  $('#sideTitle').textContent = (ui.title || '').trim() || 'LellekClient';
   let st = $('#userCss'); if (!st) { st = document.createElement('style'); st.id = 'userCss'; document.head.append(st); } st.textContent = ui.css || '';
   api.ui.zoom((ui.zoom || 100) / 100);
   applySkinAnim();
@@ -177,8 +177,8 @@ function renderFriends(d) {
   // Tabs
   $$('#friendsSeg button').forEach(b => b.classList.toggle('active', b.dataset.ftab === ftab));
   $('#friendList').classList.toggle('hidden', ftab !== 'friends'); $('#requestList').classList.toggle('hidden', ftab !== 'requests'); $('#blockedList').classList.toggle('hidden', ftab !== 'blocked');
-  $('#friendSearch').classList.toggle('hidden', ftab !== 'friends');
-  if (ftab === 'friends') renderFriendCards(L); else if (ftab === 'requests') renderRequests(L); else renderBlocked(L);
+  $('#friendSearch').classList.toggle('hidden', ftab !== 'friends'); $('#chatPane').classList.toggle('hidden', ftab !== 'chat');
+  if (ftab === 'friends') renderFriendCards(L); else if (ftab === 'requests') renderRequests(L); else if (ftab === 'chat') renderChat(); else renderBlocked(L);
   renderFriendsMini();
 }
 function renderFriendCards(L) {
@@ -191,18 +191,22 @@ function renderFriendCards(L) {
   for (const f of list) {
     const c = el('div', 'card friend ' + dotClass(f));
     const top = el('div', 'friend-top'); const nm = el('div', 'fn');
-    const title = el('b'); title.append(document.createTextNode(fname(f))); if (f.fav) title.prepend(el('span', 'star', '★ ')); if (f.nick) title.append(el('small', 'real', ` ${f.name}`));
-    nm.append(title, el('span', 'fstatus', friendText(f))); if (f.online && f.note) nm.append(el('span', 'fnote', `„${f.note}“`));
+    const title = el('b'); title.append(document.createTextNode(fname(f))); if (f.fav) title.prepend(el('span', 'star', '★ ')); if (f.nick) title.append(el('small', 'real', ` ${f.name}`)); if (f.level) { const lv = el('span', 'lvl-pill', String(f.level)); lv.title = `Level ${f.level}${f.badge ? ' · ' + f.badge : ''}`; title.append(' ', lv); }
+    nm.append(title, el('span', 'fstatus', friendText(f))); if (f.online && f.note) nm.append(el('span', 'fnote', `„${f.note}“`)); if (f.badge) nm.append(el('span', 'fbadge', f.badge));
     top.append(headImg(f.uuid), nm);
     const act = el('div', 'actions');
     if (f.online && f.server) { const j = el('button', 'primary', 'Beitreten'); j.onclick = () => joinFriend(f); act.append(j); }
     if (f.online && !f.pending) { const i = el('button', 'ghost', 'Einladen'); i.title = L.myServer ? `Auf ${L.myServer} einladen` : 'Nachricht/Einladung schicken'; i.onclick = () => inviteFriend(f); act.append(i); }
+    if (!f.pending) { const ch = el('button', 'ghost', 'Nachricht'); ch.onclick = () => openChat(f.uuid); act.append(ch); }
     const fav = el('button', 'ghost icon-btn' + (f.fav ? ' on' : ''), '★'); fav.title = f.fav ? 'Kein Favorit mehr' : 'Als Favorit oben anheften'; fav.onclick = () => friendAction(() => api.friends.edit({ uuid: f.uuid, fav: !f.fav })); act.append(fav);
     const more = el('button', 'ghost icon-btn', '⋯'); more.title = 'Mehr'; act.append(more);
     const menu = el('div', 'fmenu hidden');
     const nick = el('button', 'ghost small', 'Spitzname'); nick.onclick = async () => { const n = await askText(`Spitzname für ${f.name} („-“ entfernt ihn):`, f.nick || ''); if (n === null) return; friendAction(() => api.friends.edit({ uuid: f.uuid, nick: n === '-' ? '' : n }), n === '-' ? 'Spitzname entfernt' : 'Spitzname gespeichert'); };
     const rm = el('button', 'ghost small danger', 'Entfernen'); rm.onclick = () => { if (confirm(`${fname(f)} als Freund entfernen? Ihr seht euch dann nicht mehr.`)) friendAction(() => api.friends.remove(f.uuid), `${fname(f)} entfernt`); };
     const bl = el('button', 'ghost small danger', 'Blockieren'); bl.onclick = () => { if (confirm(`${f.name} blockieren? Er wird entfernt und kann dir keine Anfragen mehr schicken.`)) friendAction(() => api.friends.block({ uuid: f.uuid, name: f.name }), `${f.name} blockiert`); };
+    const pty = el('button', 'ghost small', 'In Party einladen'); pty.onclick = () => partyInviteFriend(f);
+    const shr = el('button', 'ghost small', 'Profil schicken'); shr.onclick = () => chatSendProfile(f.uuid);
+    if (!f.pending) menu.append(pty, shr);
     menu.append(nick, rm, bl); more.onclick = () => menu.classList.toggle('hidden');
     c.append(top, act, menu); box.append(c);
   }
