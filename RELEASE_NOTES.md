@@ -4,6 +4,10 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.5.1
+
+- **Zweites Fenster:** Konto-Menü oben rechts → „Zweites Fenster (anderes Konto)“. Jedes Fenster hat eigene Konto-Wahl, Freunde und Chat; Profile, Mods und Server-Favoriten kommen vom Hauptfenster. Dasselbe Profil kann nicht in zwei Fenstern gleichzeitig laufen.
+
 ## Neu in 2.5 – die große Überarbeitung
 
 **Neue Oberfläche:** Seitenleiste mit Gruppen (Bibliothek · Community · Fortschritt · Werkzeuge), einklappbar; Optionen in Kategorien mit Suche und automatischem Speichern; aufgeräumte Profilkarten; schwebende Hinweise; Leistungsmodus für schwache PCs; die 3D-Vorschau pausiert, wenn sie nicht zu sehen ist.

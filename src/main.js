@@ -16,11 +16,16 @@ const { spawn } = require('child_process');
 
 // ---------- Pfade & Store ----------
 const PORTABLE = (() => { try { const d = path.dirname(process.execPath); return fs.existsSync(path.join(d, 'portable.txt')) ? path.join(d, 'LellekClient-Daten') : null; } catch { return null; } })();
-const DATA_DIR = PORTABLE || app.getPath('userData');
+// Mehrere Fenster (z. B. zwei Konten gleichzeitig): --instance=2 … 4 → eigene Einstellungen/Konten, gleiche Profile & Mods
+const WINDOW_NO = (() => { const a = process.argv.find(x => /^--instance=\d$/.test(String(x))); const n = a ? Number(String(a).slice(11)) : 1; return n >= 2 && n <= 4 ? n : 1; })();
+const BASE_USERDATA = app.getPath('userData');
+if (WINDOW_NO > 1) app.setPath('userData', path.join(BASE_USERDATA, `fenster-${WINDOW_NO}`)); // eigenes Browser-Profil und eigene Einzelinstanz-Sperre
+const DATA_DIR = PORTABLE || BASE_USERDATA;
 const ROOT = path.join(DATA_DIR, 'minecraft');      // gemeinsame Libraries/Assets/Versionen
 const INSTANCES = path.join(DATA_DIR, 'instances'); // ein Spielordner pro Profil
 const JAVA_DIR = path.join(DATA_DIR, 'java');
-const STORE_FILE = path.join(DATA_DIR, 'lellek.json');
+const MAIN_STORE_FILE = path.join(DATA_DIR, 'lellek.json');
+const STORE_FILE = WINDOW_NO > 1 ? path.join(DATA_DIR, `lellek-fenster${WINDOW_NO}.json`) : MAIN_STORE_FILE;
 const CLIENT_NAME = 'LellekClient';
 // Voreingestellter CurseForge-Key (kann in den Optionen überschrieben werden)
 const DEFAULT_CF_KEY = '$2a$10$cS7B7K8MQOivIx44iqyc4O547xbpwaH/s6r3J.FJHjWgvr/E4A7Fe';
@@ -29,6 +34,19 @@ const CLIENT_VERSION = require('../package.json').version;
 const handlers = {}; const _handle = ipcMain.handle.bind(ipcMain);
 ipcMain.handle = (ch, fn) => { handlers[ch] = fn; return _handle(ch, fn); };
 const store = loadStore();
+if (WINDOW_NO > 1) syncFromMainStore(store);
+/** Weiteres Fenster: Profile, Favoriten, Konten und Einstellungen vom Hauptfenster übernehmen (eigene Konto-Wahl, Freunde, Chat bleiben getrennt) */
+function syncFromMainStore(st) {
+  let main; try { main = JSON.parse(fs.readFileSync(MAIN_STORE_FILE, 'utf8')); } catch { return; }
+  const own = (st.profiles || []).filter(p => !(main.profiles || []).some(m => m.id === p.id));
+  st.profiles = [...(main.profiles || []), ...own];
+  st.favorites = main.favorites || st.favorites || [];
+  st.accounts ??= []; for (const a of main.accounts || []) if (!st.accounts.some(x => x.id === a.id)) st.accounts.push({ ...a });
+  if (!st.currentAccount || !st.accounts.some(a => a.id === st.currentAccount)) st.currentAccount = (st.accounts.find(a => a.id !== main.currentAccount) || st.accounts[0] || {}).id || null;
+  const keep = { ...(st.settings || {}) };
+  st.settings = { ...(main.settings || {}), ui: keep.ui || main.settings?.ui, badge: keep.badge, sessionRecap: keep.sessionRecap ?? main.settings?.sessionRecap, tray: false, discord: false, autostart: false };
+  st.shareImports = { ...(main.shareImports || {}), ...(st.shareImports || {}) };
+}
 let win = null;
 let currentAuth = null; // { mclc, profile, xbox }
 
@@ -57,7 +75,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1180, height: 760, minWidth: 980, minHeight: 640,
     backgroundColor: '#22262E',
-    title: 'LellekClient',
+    title: WINDOW_NO > 1 ? `LellekClient – Fenster ${WINDOW_NO}` : 'LellekClient',
     icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
@@ -954,6 +972,7 @@ ipcMain.handle('profiles:import', async () => {
 // ---------- Tray-Schnellstart ----------
 let tray = null;
 function buildTray() {
+  if (WINDOW_NO > 1) return; // Symbol im Infobereich nur beim Hauptfenster
   const { Tray, Menu } = require('electron');
   if (store.settings.tray === false) { if (tray) { tray.destroy(); tray = null; } return; }
   if (!tray) { tray = new Tray(process.platform === 'darwin' ? require('electron').nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'icon-256.png')).resize({ width: 18, height: 18 }) : path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon-256.png')); tray.setToolTip('LellekClient'); tray.on('click', () => { win?.show(); win?.focus(); }); }
@@ -1150,7 +1169,7 @@ ipcMain.handle('import:profile', async (_e, item) => {
 });
 
 // ---------- 8. Autostart ----------
-ipcMain.handle('autostart:set', (_e, enable) => { try { app.setLoginItemSettings({ openAtLogin: !!enable, openAsHidden: true }); } catch {} });
+ipcMain.handle('autostart:set', (_e, enable) => { if (WINDOW_NO > 1) return; try { app.setLoginItemSettings({ openAtLogin: !!enable, openAsHidden: true }); } catch {} });
 
 // ---------- 9. Mod-Konflikte & sicherer Start ----------
 function modIdOf(jar) { try { const z = new AdmZip(jar); const fm = z.getEntry('fabric.mod.json'); if (fm) { const j = JSON.parse(z.readAsText(fm)); return { id: j.id, version: j.version }; } const mi = z.getEntry('mcmod.info'); if (mi) { const j = JSON.parse(z.readAsText(mi)); const m = Array.isArray(j) ? j[0] : j.modList?.[0]; return m ? { id: m.modid, version: m.version } : null; } const mt = z.getEntry('META-INF/mods.toml') || z.getEntry('META-INF/neoforge.mods.toml'); if (mt) { const t = z.readAsText(mt); return { id: (t.match(/modId\s*=\s*"([^"]+)"/) || [])[1], version: (t.match(/version\s*=\s*"([^"]+)"/) || [])[1] }; } } catch {} return null; }
@@ -1303,6 +1322,7 @@ const DEFAULT_DISCORD_IMAGE = ''; // z. B. https://raw.githubusercontent.com/<us
 let discord = null, discordReady = false, presence = { state: 'launcher' };
 const gameContext = new Map(); // profileId → { server, world }
 async function discordConnect() {
+  if (WINDOW_NO > 1) return; // Discord-Status kommt vom Hauptfenster
   const appId = store.settings.discordAppId || DEFAULT_DISCORD_APP;
   if (!appId || store.settings.discord === false) return;
   try {
@@ -1379,7 +1399,7 @@ ipcMain.handle('vanilla:importSettings', async (_e, profileId) => { const p = st
 ipcMain.handle('vanilla:link', async (_e, { profileId, enable }) => { const p = store.profiles.find(x => x.id === profileId); if (!p) throw new Error('Profil nicht gefunden'); await linkVanillaFolders(p, enable); p.linkVanilla = enable; saveStore(); return true; });
 
 // ---------- Einstellungen ----------
-ipcMain.handle('settings:get', () => ({ ...store.settings, dataDir: DATA_DIR, portable: !!PORTABLE, totalMemoryGb: Math.round(os.totalmem() / 1e9), clientVersion: CLIENT_VERSION }));
+ipcMain.handle('settings:get', () => ({ ...store.settings, windowNo: WINDOW_NO, dataDir: DATA_DIR, portable: !!PORTABLE, totalMemoryGb: Math.round(os.totalmem() / 1e9), clientVersion: CLIENT_VERSION }));
 ipcMain.handle('settings:save', (_e, s) => { setTimeout(buildTray, 100); const before = store.settings.discordAppId + '|' + store.settings.discordImageUrl; store.settings = { ...store.settings, ...s }; saveStore(); if (store.settings.discordAppId + '|' + store.settings.discordImageUrl !== before || !discord) { try { discord?.destroy(); } catch {} discord = null; discordReady = false; discordConnect(); } else updatePresence(); return store.settings; });
 ipcMain.handle('settings:openDataDir', () => shell.openPath(DATA_DIR));
 
@@ -2778,3 +2798,26 @@ ipcMain.handle('home:summary', () => {
   const lastServers = [...new Set([...S].reverse().flatMap(s => s.servers || []))].slice(0, 4);
   return { level: levelInfo(), lastSession: last, lastServers, unread: chatUnread(), party: partyView() };
 });
+
+// ---------- Mehrere Fenster: zweites LellekClient für ein anderes Konto ----------
+ipcMain.handle('window:openAnother', () => {
+  const n = WINDOW_NO === 1 ? 2 : Math.min(4, WINDOW_NO + 1);
+  saveStoreNow();
+  const args = [...(app.isPackaged ? [] : [app.getAppPath()]), `--instance=${n}`];
+  const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' }); child.unref();
+  return n;
+});
+// Dasselbe Profil darf nicht in zwei Fenstern gleichzeitig laufen (gleicher Spielordner)
+const runLockFile = (p) => path.join(instanceDir(p), '.lellek-laeuft');
+function otherWindowRunning(p) {
+  try { const [pid, no] = fs.readFileSync(runLockFile(p), 'utf8').split('|').map(Number); if (pid && pid !== process.pid) { process.kill(pid, 0); return no || 1; } } catch {}
+  return 0;
+}
+wrapHandler('launch', async (orig, e, profileId, server) => {
+  const p = profileById(profileId); const other = p && otherWindowRunning(p);
+  if (other) throw new Error(`„${p.name}“ läuft schon im LellekClient-Fenster ${other} – nimm ein anderes Profil oder dupliziere es`);
+  const r = await orig(e, profileId, server);
+  try { fs.writeFileSync(runLockFile(p), `${process.pid}|${WINDOW_NO}`); } catch {}
+  return r;
+});
+setInterval(() => { for (const p of store.profiles) { try { const f = runLockFile(p); if (!running.has(p.id) && fs.existsSync(f) && Number(fs.readFileSync(f, 'utf8').split('|')[0]) === process.pid) fs.rmSync(f, { force: true }); } catch {} } }, 5000);

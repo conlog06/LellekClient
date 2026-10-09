@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('lellek', {
   radar: { scan: invoke('radar:scan') },
   perf: { plan: invoke('perf:plan'), apply: invoke('perf:apply') },
   home: { summary: invoke('home:summary') },
+  windows: { openAnother: invoke('window:openAnother') },
   onLog: on('launch:log'),
   onProgress: on('launch:progress'),
   onClosed: on('launch:closed'),

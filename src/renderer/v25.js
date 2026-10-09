@@ -411,7 +411,18 @@ function renderLevelPill(lv) {
   const b = $('.account-btn'); if (!b || !lv) return;
   let p = b.querySelector('.lvl-pill'); if (!p) { p = el('span', 'lvl-pill'); b.prepend(p); } p.textContent = String(lv.level); p.title = `Level ${lv.level}`;
 }
-{ const _ra = renderAccount; renderAccount = async function (...a) { const r = await _ra.apply(this, a); try { renderLevelPill((await api.ach.get())); } catch {} return r; }; }
+{ const _ra = renderAccount; renderAccount = async function (...a) { const r = await _ra.apply(this, a); try { renderLevelPill((await api.ach.get())); } catch {} addWindowItem(); return r; }; }
+// ---------- Mehrere Fenster (zwei Konten gleichzeitig) ----------
+let windowNo = 1;
+api.settings.get().then(s => { windowNo = s.windowNo || 1; if (windowNo > 1) { document.body.classList.add('win-extra'); const c = el('span', 'chip win-chip', `Fenster ${windowNo}`); c.title = 'Zusätzliches LellekClient-Fenster – eigene Konto-Wahl, Freunde und Chat; Profile und Mods kommen vom Hauptfenster'; $('#paletteBtn').before(c); $('#clientVersion').textContent += ` · Fenster ${windowNo}`; } addWindowItem(); });
+async function openAnotherWindow() { try { const n = await api.windows.openAnother(); toast(`Fenster ${n} öffnet sich – dort oben rechts das andere Konto wählen`); } catch (e) { toast(e.message, true); } }
+function addWindowItem() {
+  const menu = $('.account-menu'); if (!menu || menu.querySelector('.win-item') || windowNo >= 4) return;
+  const it = el('div', 'item win-item', windowNo === 1 ? '⧉ Zweites Fenster (anderes Konto)' : `⧉ Weiteres Fenster (${windowNo + 1})`);
+  it.title = 'Öffnet LellekClient ein weiteres Mal – z. B. um mit zwei Konten gleichzeitig zu spielen';
+  it.onclick = (e) => { e.stopPropagation(); menu.classList.add('hidden'); openAnotherWindow(); };
+  menu.prepend(it, el('hr'));
+}
 
 // =====================================================================
 // Startseite: Level, Party, Freunde, letzte Session, Server, News
@@ -710,6 +721,7 @@ $$('#friendsSeg button').forEach(b => b.addEventListener('click', () => { if (b.
   const _pi = paletteItems;
   paletteItems = function () {
     const items = _pi(), cur = currentProfile();
+    items.push({ group: 'Aktion', label: 'Zweites LellekClient-Fenster öffnen', hint: 'anderes Konto', run: () => openAnotherWindow() });
     items.push({ group: 'Aktion', label: 'Profil-Code einfügen', hint: 'LC1-…', run: () => openShareImport() });
     if (cur) {
       items.push({ group: 'Aktion', label: 'Performance-Autopilot', hint: cur.name, run: () => openAutopilot(cur.id) });

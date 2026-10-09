@@ -1,7 +1,7 @@
 {
   "name": "lellekclient",
   "productName": "LellekClient",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Minecraft-Launcher für Windows und macOS – alle Versionen, Profile, Mod-Manager, Freunde, Server und Skins",
   "main": "src/main.js",
   "author": "Lellek",

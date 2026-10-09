@@ -314,3 +314,6 @@ dialog { max-height: 90vh; overflow-y: auto; }
 .chat-main { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
 .chat-threads { min-height: 0; }
 .pm.add .big { font-size: 30px; line-height: 1; }
+.win-chip { background: color-mix(in srgb, #2EC8D8 20%, transparent); color: #7FE3EC; }
+body.win-extra .side-brand .rail-logo { box-shadow: 0 0 0 2px #2EC8D8; }
+.account-menu .win-item { color: var(--accent); }

@@ -772,6 +772,7 @@ $('#settingsForm').onsubmit = async (e) => {
 
 // ---------- Neuigkeiten ----------
 const NEWS = [
+  { date: '2026-10-09', title: 'LellekClient 2.5.1 – zwei Fenster', text: 'LellekClient lässt sich jetzt mehrmals öffnen (Konto-Menü → „Zweites Fenster“), z. B. um mit zwei Konten gleichzeitig zu spielen. Jedes Fenster hat eigene Konto-Wahl, Freunde und Chat; Profile, Mods und Server kommen vom Hauptfenster. Dasselbe Profil kann nicht in zwei Fenstern gleichzeitig laufen.' },
   { date: '2026-10-09', title: 'LellekClient 2.5 – die große Überarbeitung', text: 'Neue Oberfläche mit geordneter Seitenleiste, Optionen mit Suche und flüssigeren Seitenwechseln. Neu: Party-Modus (alle bekommen dieselben Mods und starten gemeinsam), Chat mit Freunden, Profil-Codes, Zeitmaschine für Mods & Configs, Session-Rückblick, Level & 25 Erfolge, Server-Radar mit Freunden und Performance-Autopilot.' },
   { date: '2026-10-09', title: 'LellekClient 2.2 – Freundschaftsanfragen', text: 'Freunde müssen deine Anfrage jetzt annehmen – erst dann seht ihr euch gegenseitig. Neu: eigener Status (Online, Abwesend, Bitte nicht stören, Unsichtbar) mit kurzer Notiz, Einladungen an Freunde mit Nachricht und Server, Favoriten, Spitznamen, Blockieren und ein Zähler für offene Anfragen.' },
   { date: '2026-10-09', title: 'LellekClient 2.1.1', text: 'Jedes Minecraft-Konto hat jetzt seine eigene Freundesliste – beim Kontowechsel wechselt die Liste mit. Updates kommen ab jetzt automatisch über GitHub.' },
