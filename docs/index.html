@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="LellekClient – kostenloser Minecraft-Launcher für Windows und Mac: alle Versionen, Fabric, Forge, NeoForge, Mods, Freundesliste, Server-Hosting, Streamer-Modus.">
+<meta property="og:title" content="LellekClient">
+<meta property="og:description" content="Minecraft, wie du es willst. Ein Launcher für alles.">
+<meta property="og:image" content="https://conlog06.github.io/LellekClient/img/play.webp">
+<meta name="theme-color" content="#0E0A06">
+<title>LellekClient</title>
+<link rel="icon" type="image/png" href="img/icon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Figtree:wght@400;500;600;700;800&family=Silkscreen&display=swap">
+<style>
+/* Layout: Glut-Nacht über Block-Hügeln als Hero-Kulisse, danach Zahlenleiste, Bento-Raster der Features,
+   ein bedienbares Launcher-Modell, News-Karten, FAQ, Community, Schluss-Download. Gold/Glut aus dem Logo. */
+:root {
+  color-scheme: dark;
+  --bg: #0E0A06;
+  --bg2: #15100A;
+  --card: #1A140C;
+  --card2: #231A10;
+  --line: #33271A;
+  --text: #F7F0E4;
+  --muted: #AD9F89;
+  --gold: #FFB400;
+  --ember: #FF7A1A;
+  --gold-deep: #8F5B00;
+  --ok: #7BD88F;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --pixel: "Silkscreen", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 700; line-height: 1.05; text-wrap: balance; }
+p { margin: 0; }
+.wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding-inline: 20px; }
+.kicker { font: 12px var(--pixel); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.muted { color: var(--muted); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* Knöpfe */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font: 700 16px/1 var(--display); letter-spacing: .02em; text-decoration: none; padding: 16px 24px 15px; border-radius: 6px; border: 0; cursor: pointer; transition: transform .12s, box-shadow .12s, background .15s; white-space: nowrap; }
+.btn svg { width: 19px; height: 19px; flex: none; }
+.btn-main { background: linear-gradient(180deg, #FFC21F, var(--ember)); color: #241100; box-shadow: 0 5px 0 var(--gold-deep), 0 16px 40px rgba(255,122,26,.35); }
+.btn-main:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--gold-deep), 0 20px 44px rgba(255,122,26,.4); }
+.btn-main:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--gold-deep); }
+.btn-soft { background: rgba(255,255,255,.06); color: var(--text); border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(6px); }
+.btn-soft:hover { background: rgba(255,255,255,.11); }
+.btn-sm { padding: 11px 16px 10px; font-size: 14px; }
+
+/* Navigation */
+.nav { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; z-index: 20; transition: background .2s, border-color .2s; border-bottom: 1px solid transparent; }
+.nav.solid { background: rgba(14,10,6,.86); backdrop-filter: blur(12px); border-color: var(--line); }
+.nav .wrap { display: flex; align-items: center; gap: 26px; height: 70px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 19px var(--display); }
+.brand img { width: 38px; height: 38px; border-radius: 9px; }
+.nav-links { display: flex; gap: 24px; margin-left: 12px; }
+.nav-links a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: 15px; }
+.nav-links a:hover { color: var(--text); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.icon-link { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; color: var(--muted); }
+.icon-link:hover { color: var(--text); background: rgba(255,255,255,.06); }
+.icon-link svg { width: 21px; height: 21px; }
+@media (max-width: 860px) { .nav-links, .icon-link { display: none; } }
+
+/* Hero */
+.hero { position: relative; isolation: isolate; padding: 150px 0 0; overflow: hidden; }
+.hero-bg { position: absolute; inset: 0; z-index: -2; background: url(img/hero-bg.webp) center 40% / cover no-repeat; }
+.hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(14,10,6,.55) 0%, rgba(14,10,6,.15) 35%, rgba(14,10,6,.65) 72%, var(--bg) 100%); }
+.hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; }
+.hero-copy { display: grid; gap: 24px; justify-items: start; min-width: 0; }
+.badge { display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,180,0,.3); font-size: 14px; font-weight: 600; text-decoration: none; }
+.badge b { font: 11px var(--pixel); background: var(--gold); color: #241100; padding: 4px 8px; border-radius: 999px; }
+.hero h1 { font-size: clamp(42px, 5.4vw, 72px); letter-spacing: -.015em; }
+.hero h1 span { display: block; background: linear-gradient(90deg, #FFD24A, var(--ember)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero-lead { font-size: clamp(17px, 1.7vw, 20px); color: #D8CBB6; max-width: 52ch; }
+.cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.other { font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.other a { color: var(--text); text-underline-offset: 3px; }
+.hero-shot { position: relative; min-width: 0; }
+.hero-shot img { border-radius: 12px; border: 1px solid rgba(255,180,0,.25); box-shadow: 0 40px 90px rgba(0,0,0,.65), 0 0 0 6px rgba(255,180,0,.05); transform: perspective(1400px) rotateY(-9deg) rotateX(3deg); transform-origin: left center; }
+@media (max-width: 960px) { .hero { padding-top: 120px; } .hero-grid { grid-template-columns: 1fr; } .hero-shot img { transform: none; } }
+
+/* Zahlen */
+.stats { position: relative; margin-top: 80px; padding-block: 34px; border-block: 1px solid var(--line); background: rgba(21,16,10,.75); }
+.stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.stat { display: grid; gap: 4px; }
+.stat b { font: 700 clamp(30px, 3.6vw, 44px)/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 14.5px; }
+@media (max-width: 760px) { .stats .wrap { grid-template-columns: 1fr 1fr; gap: 26px; } }
+
+section { padding-block: 110px; }
+.head { display: grid; gap: 14px; max-width: 760px; margin-bottom: 48px; }
+.head h2 { font-size: clamp(32px, 4.4vw, 52px); }
+.head p { color: var(--muted); font-size: 18px; }
+.head.center { margin-inline: auto; text-align: center; justify-items: center; }
+
+/* Bento-Features */
+.bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+.tile { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; transition: border-color .2s, transform .2s; }
+.tile:hover { border-color: rgba(255,180,0,.45); transform: translateY(-3px); }
+.tile-body { padding: 24px 24px 22px; display: grid; gap: 8px; }
+.tile h3 { font-size: 23px; }
+.tile p { color: var(--muted); font-size: 15.5px; }
+.tile .media { margin-top: auto; padding: 0 0 0 24px; }
+.tile .media img { border-radius: 10px 0 0 0; border: 1px solid var(--line); border-right: 0; border-bottom: 0; }
+.t-6 { grid-column: span 6; } .t-4 { grid-column: span 4; } .t-3 { grid-column: span 3; } .t-2 { grid-column: span 2; }
+.t-wide { flex-direction: row; }
+.t-wide .tile-body { flex: 0 0 38%; align-content: center; padding: 34px; }
+.t-wide .media { padding: 28px 0 0 0; flex: 1; align-self: end; }
+@media (max-width: 960px) { .t-4, .t-3, .t-2 { grid-column: span 3; } .t-6 { grid-column: span 6; } .t-wide { flex-direction: column; } .t-wide .tile-body { padding: 24px; } .t-wide .media { padding: 0 0 0 24px; } }
+@media (max-width: 640px) { .bento { grid-template-columns: 1fr; } .t-6, .t-4, .t-3, .t-2 { grid-column: auto; } }
+/* kleine Illustrationen */
+.keys { display: grid; grid-template-columns: repeat(3, 42px); gap: 6px; padding: 6px 24px 24px; }
+.keys i { height: 42px; border-radius: 6px; background: var(--card2); border: 1px solid var(--line); border-bottom-width: 4px; display: grid; place-items: center; font: 12px var(--pixel); font-style: normal; color: var(--muted); }
+.keys i.on { background: var(--gold); color: #241100; border-color: var(--gold-deep); }
+.keys i.sp { grid-column: span 3; height: 30px; }
+.hudline { padding: 0 24px 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+.hudline span { font: 11px var(--pixel); padding: 6px 9px; border-radius: 5px; background: rgba(0,0,0,.45); border: 1px solid var(--line); }
+.hudline span b { color: var(--gold); font-weight: 400; }
+.live { padding: 0 24px 26px; display: grid; gap: 10px; }
+.live .chip { justify-self: start; font: 700 12px var(--display); letter-spacing: .04em; background: #E5383B; color: #fff; padding: 6px 12px; border-radius: 999px; }
+.live .blur { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #4a3a28, #2a2014); filter: blur(3px); }
+.live .blur:nth-child(3) { width: 70%; } .live .blur:nth-child(4) { width: 45%; }
+.loaders { padding: 0 24px 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+.loaders span { font: 600 14px var(--display); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card2); }
+.loaders span.hl { border-color: var(--gold); color: var(--gold); }
+
+/* Launcher-Modell */
+.launcher { background: var(--bg2); border-block: 1px solid var(--line); }
+.l-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: center; }
+.points { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 20px; }
+.points li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; }
+.points .n { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,180,0,.12); color: var(--gold); }
+.points .n svg { width: 18px; height: 18px; }
+.points b { display: block; font: 700 18px var(--display); margin-bottom: 2px; }
+.points span { color: var(--muted); font-size: 15.5px; }
+.mock { background: #120D07; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.5); min-width: 0; }
+.mock-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: #17110A; }
+.mock-top .me { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.head-px { width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated; background:
+  linear-gradient(#5A3B28 0 25%, transparent 25%), linear-gradient(90deg, transparent 15%, #fff 15% 30%, #3B3B8F 30% 40%, transparent 40% 60%, #3B3B8F 60% 70%, #fff 70% 85%, transparent 85%) 0 50% / 100% 12% no-repeat, #C9A57A; }
+.mock-top .online { font: 11px var(--pixel); color: var(--ok); }
+.plist { list-style: none; margin: 0; padding: 10px; display: grid; gap: 6px; }
+.plist button { width: 100%; display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.plist button:hover { background: rgba(255,255,255,.04); }
+.plist button[aria-pressed="true"] { background: rgba(255,180,0,.09); border-color: rgba(255,180,0,.4); }
+.plist .ic { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; background: var(--card2); font: 15px var(--pixel); color: var(--gold); }
+.plist b { display: block; font: 700 16px var(--display); }
+.plist small { color: var(--muted); font-size: 13px; }
+.lb { font: 600 12px var(--display); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.lb.fabric { color: #DBC7A3; } .lb.forge { color: #9FB4FF; } .lb.neo { color: #FF9C6B; } .lb.van { color: var(--ok); }
+.mock-foot { padding: 14px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.play { width: 100%; padding: 15px; border: 0; border-radius: 9px; cursor: pointer; background: linear-gradient(180deg, #FFC21F, var(--ember)); color: #241100; font: 700 19px var(--display); box-shadow: 0 4px 0 var(--gold-deep); display: grid; gap: 2px; }
+.play small { font: 600 12px var(--body); opacity: .8; }
+.play:disabled { cursor: default; filter: saturate(.7); }
+.bar { height: 8px; border-radius: 4px; background: var(--card2); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .25s; }
+.bar-text { font: 11px var(--pixel); color: var(--muted); min-height: 14px; }
+@media (max-width: 960px) { .l-grid { grid-template-columns: 1fr; } }
+
+/* News */
+.news { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.post { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.post img { aspect-ratio: 16/9; object-fit: cover; width: 100%; border-bottom: 1px solid var(--line); }
+.post div { padding: 20px 22px 24px; display: grid; gap: 8px; }
+.post .meta { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
+.post .meta b { font: 10px var(--pixel); color: #241100; background: var(--gold); padding: 3px 7px; border-radius: 4px; font-weight: 400; }
+.post h3 { font-size: 21px; }
+.post p { color: var(--muted); font-size: 15px; }
+@media (max-width: 900px) { .news { grid-template-columns: 1fr; } }
+
+/* FAQ */
+.faq { display: grid; gap: 10px; max-width: 880px; margin: 0 auto; }
+.faq details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; padding: 20px 22px; font: 700 18px var(--display); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--gold); font: 18px var(--pixel); transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 22px 20px; color: var(--muted); max-width: 72ch; }
+
+/* Community */
+.community { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.comm { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 30px; display: grid; gap: 12px; align-content: start; }
+.comm h3 { font-size: 24px; display: flex; align-items: center; gap: 12px; }
+.comm h3 svg { width: 26px; height: 26px; color: var(--gold); }
+.comm p { color: var(--muted); }
+.comm .btn { justify-self: start; margin-top: 6px; }
+@media (max-width: 760px) { .community { grid-template-columns: 1fr; } }
+
+/* Schluss-CTA */
+.final { position: relative; isolation: isolate; overflow: hidden; text-align: center; padding-block: 130px; }
+.final::before { content: ""; position: absolute; inset: 0; z-index: -2; background: url(img/hero-bg.webp) center 70% / cover; transform: scaleY(-1); }
+.final::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, var(--bg) 0%, rgba(14,10,6,.55) 40%, rgba(14,10,6,.7) 100%); }
+.final .wrap { display: grid; justify-items: center; gap: 22px; }
+.final img.logo { width: 110px; height: 110px; border-radius: 22px; box-shadow: 0 18px 50px rgba(255,122,26,.35); }
+.final h2 { font-size: clamp(36px, 5vw, 62px); max-width: 16ch; }
+.final p { color: #D8CBB6; max-width: 56ch; }
+.dl-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; font-size: 14.5px; color: var(--muted); }
+.dl-links a { color: var(--text); font-weight: 600; text-underline-offset: 3px; }
+
+footer { border-top: 1px solid var(--line); background: var(--bg2); padding-block: 56px 36px; font-size: 14.5px; }
+.f-grid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 32px; }
+.f-grid h4 { margin: 0 0 12px; font: 11px var(--pixel); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; font-weight: 400; }
+.f-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.f-grid a { color: var(--text); text-decoration: none; }
+.f-grid a:hover { color: var(--gold); }
+.f-brand { display: grid; gap: 12px; align-content: start; }
+.f-brand p { color: var(--muted); max-width: 36ch; }
+.f-bottom { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 13px; }
+@media (max-width: 760px) { .f-grid { grid-template-columns: 1fr 1fr; } .f-brand { grid-column: 1 / -1; } }
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .tile, .btn { transition: none; } .hero-shot img { transform: none; } }
+</style>
+</head>
+<body>
+
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/logo.webp" alt="" width="38" height="38">LellekClient</a>
+    <nav class="nav-links" aria-label="Hauptmenü">
+      <a href="#features">Features</a>
+      <a href="#launcher">Launcher</a>
+      <a href="#news">News</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <a class="icon-link js-repo" href="#" target="_blank" rel="noopener" aria-label="LellekClient auf GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      </a>
+      <a class="btn btn-main btn-sm js-dl-main" href="#download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <a class="badge" href="#news"><b>NEU</b> Version 2.1 – jetzt auch für den Mac</a>
+        <h1>Minecraft, wie du es willst.<span>Ein Launcher für alles.</span></h1>
+        <p class="hero-lead">Jede Version von 1.8.9 bis 26.2, Fabric, Forge und NeoForge, Mods und Modpacks mit einem Klick, eigenes HUD, Freundesliste und dein eigener Server – kostenlos für Windows und Mac.</p>
+        <div class="cta">
+          <a class="btn btn-main js-dl-main" href="#download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M12 3v12M6 10l6 6 6-6M4 21h16"/></svg>
+            <span class="js-dl-label">Download für Windows</span>
+          </a>
+          <a class="btn btn-soft" href="#features">Was er kann</a>
+        </div>
+        <div class="other">Auch für: <a class="js-dl-mac-arm" href="#download">Mac (Apple Silicon)</a><a class="js-dl-mac-intel" href="#download">Mac (Intel)</a><a class="js-dl-win" href="#download">Windows</a></div>
+      </div>
+      <div class="hero-shot"><img src="img/play.webp" alt="LellekClient-Startseite mit 3D-Skin, Spielen-Knopf und Freunde-online-Liste" width="1600" height="975"></div>
+    </div>
+    <div class="stats">
+      <div class="wrap">
+        <div class="stat"><b>4</b><span>Mod-Loader: Vanilla, Fabric, Forge, NeoForge</span></div>
+        <div class="stat"><b>1.8.9 – 26.2</b><span>jede Version direkt von Mojang</span></div>
+        <div class="stat"><b>2</b><span>Mod-Plattformen: Modrinth &amp; CurseForge</span></div>
+        <div class="stat"><b>0 €</b><span>für Windows und Mac</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="head">
+        <span class="kicker">Features</span>
+        <h2>Alles in einem Fenster</h2>
+        <p>Mod-Manager, Freundesliste, Server-Hosting, Statistik und Design – ohne drei weitere Programme und zehn Browser-Tabs.</p>
+      </div>
+      <div class="bento">
+        <article class="tile t-6 t-wide">
+          <div class="tile-body"><span class="kicker">Freunde</span><h3>Sieh, wer spielt – und spring dazu</h3><p>Freunde per Minecraft-Name hinzufügen, Online-Status mit Version und Server sehen und mit einem Klick beitreten. Jedes Konto hat seine eigene Liste.</p></div>
+          <div class="media"><img src="img/card-friendlist.webp" alt="Freundesliste mit Online-Status" width="1100" height="200"></div>
+        </article>
+        <article class="tile t-3">
+          <div class="tile-body"><span class="kicker">Server</span><h3>Eigener Server, ohne Konsole</h3><p>Vanilla, Paper oder Fabric. Plugins von Modrinth, Freunde von außen per playit.gg – ohne Portfreigabe.</p></div>
+          <div class="media"><img src="img/card-server.webp" alt="Server-Seite mit Favoriten und eigenem Paper-Server" width="900" height="319"></div>
+        </article>
+        <article class="tile t-3">
+          <div class="tile-body"><span class="kicker">Design</span><h3>Sieht aus, wie du willst</h3><p>Acht Farbschemas, eigener Hintergrund, Größe, Skin-Animation und sogar der Text im Minecraft-Menü.</p></div>
+          <div class="media"><img src="img/card-design.webp" alt="Design-Seite mit Farbschemas" width="900" height="491"></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">LellekHUD</span><h3>Dein HUD im Spiel</h3><p>FPS, CPS, Keystrokes, Koordinaten, Ping, Uhr und Spotify – für 1.8.9, 1.12.2 und 26.2.</p></div>
+          <div class="keys" aria-hidden="true"><i></i><i class="on">W</i><i></i><i class="on">A</i><i>S</i><i>D</i><i class="sp on">—</i></div>
+          <div class="hudline" aria-hidden="true"><span><b>FPS</b> 412</span><span><b>CPS</b> 11 | 4</span><span><b>Ping</b> 23 ms</span></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">Streamer-Modus</span><h3>Live, ohne Leaks</h3><p>Name, Server-IPs, Seeds und Adressen werden verborgen – automatisch, sobald OBS oder Streamlabs läuft.</p></div>
+          <div class="live" aria-hidden="true"><span class="chip">● LIVE</span><span class="blur"></span><span class="blur"></span><span class="blur"></span></div>
+        </article>
+        <article class="tile t-2">
+          <div class="tile-body"><span class="kicker">Mods</span><h3>Mods, Packs, Shader</h3><p>Modrinth und CurseForge durchsuchen, Modpacks als eigenes Profil, Updates mit Changelog, Mod-Sets zum Umschalten.</p></div>
+          <div class="loaders" aria-hidden="true"><span>Fabric</span><span>Forge</span><span class="hl">NeoForge</span><span>Iris</span><span>Sodium</span></div>
+        </article>
+        <article class="tile t-6 t-wide">
+          <div class="tile-body"><span class="kicker">Statistik &amp; Diagnose</span><h3>Wissen, wo die Zeit hingeht – und warum es abgestürzt ist</h3><p>Spielzeit pro Tag, Serien, meistbesuchte Server. Nach einem Absturz nennt der Launcher die Ursache und bietet die Lösung gleich an – zum Beispiel „RAM um 2 GB erhöhen“.</p></div>
+          <div class="media"><img src="img/card-stats.webp" alt="Statistik-Seite mit Spielzeit der letzten 14 Tage" width="900" height="491"></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="launcher" class="launcher">
+    <div class="wrap l-grid">
+      <div>
+        <div class="head" style="margin-bottom:0">
+          <span class="kicker">Launcher</span>
+          <h2>Ein Profil pro Spielweise</h2>
+          <p>PvP auf 1.8.9, Technik-Modpack auf NeoForge, Vanilla-Survival – jedes Profil hat eigene Mods, Welten und Einstellungen.</p>
+        </div>
+        <ul class="points">
+          <li><span class="n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><div><b>Java kommt von selbst</b><span>Java 8, 17, 21 oder 25 – je nach Version automatisch geladen. Auf Apple-Silicon-Macs laufen alte Versionen über Rosetta.</span></div></li>
+          <li><span class="n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><div><b>Mehrere Konten, parallel</b><span>Zwei Profile mit verschiedenen Accounts gleichzeitig starten – zum Beispiel auf denselben Server.</span></div></li>
+          <li><span class="n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><div><b>Umzug in einer Minute</b><span>Profile, Welten und Einstellungen aus dem offiziellen Launcher, Prism, CurseForge, Modrinth-App, Lunar, Feather und NoRisk übernehmen.</span></div></li>
+          <li><span class="n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><div><b>Backups von allein</b><span>Vor jedem Start werden deine Welten gesichert, die letzten fünf bleiben.</span></div></li>
+        </ul>
+      </div>
+      <div class="mock" aria-label="Ausprobieren: Profil wählen und auf Spielen klicken">
+        <div class="mock-top"><span class="me"><span class="head-px" aria-hidden="true"></span>Lellek</span><span class="online">● 2 Freunde online</span></div>
+        <ul class="plist" id="plist">
+          <li><button type="button" aria-pressed="true" data-name="Lellek PvP" data-sub="1.8.9 · Forge"><span class="ic">⚔</span><span><b>Lellek PvP</b><small>Spielzeit 31 h · LellekHUD</small></span><span class="lb forge">Forge 1.8.9</span></button></li>
+          <li><button type="button" aria-pressed="false" data-name="Create Neo" data-sub="1.21.1 · NeoForge"><span class="ic">⚙</span><span><b>Create Neo</b><small>142 Mods · Modpack</small></span><span class="lb neo">NeoForge 1.21.1</span></button></li>
+          <li><button type="button" aria-pressed="false" data-name="Lellek 26.2" data-sub="26.2 · Fabric"><span class="ic">▲</span><span><b>Lellek 26.2</b><small>Sodium · Iris · Shader</small></span><span class="lb fabric">Fabric 26.2</span></button></li>
+          <li><button type="button" aria-pressed="false" data-name="Survival" data-sub="26.2 · Vanilla"><span class="ic">♣</span><span><b>Survival</b><small>Welt geteilt mit .minecraft</small></span><span class="lb van">Vanilla 26.2</span></button></li>
+        </ul>
+        <div class="mock-foot">
+          <button type="button" class="play" id="playBtn">Spielen<small id="playSub">Lellek PvP · 1.8.9 · Forge</small></button>
+          <div class="bar"><i id="barFill"></i></div>
+          <div class="bar-text" id="barText">Profil wählen und Spielen drücken</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="news">
+    <div class="wrap">
+      <div class="head"><span class="kicker">News</span><h2>Was zuletzt dazukam</h2></div>
+      <div class="news">
+        <article class="post"><img src="img/card-play.webp" alt="Spielen-Knopf des LellekClient" width="700" height="259"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>2.1 – LellekClient für den Mac</h3><p>Apple Silicon und Intel, ⌘-Tastenkürzel, Menüleisten-Symbol. Alte Versionen wie 1.8.9 starten auf M-Chips über Rosetta.</p></div></article>
+        <article class="post"><img src="img/card-friendlist.webp" alt="Freundesliste mit Online-Status" width="1100" height="200" style="object-position:left top"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>2.0 – Freunde, Streamer-Modus, Design</h3><p>Freundesliste mit Beitreten-Knopf, Streamer-Modus, acht Farbschemas, Paper- und Fabric-Server mit Plugins, PC-Check.</p></div></article>
+        <article class="post"><img src="img/card-design.webp" alt="Design-Seite" width="900" height="491"><div><span class="meta"><b>UPDATE</b>Oktober 2026</span><h3>1.9 – NeoForge &amp; Selbst-Updater</h3><p>NeoForge-Profile und -Modpacks, Updates mit einem Klick, Profile als Modrinth-Modpack (.mrpack) teilen.</p></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" style="padding-top:20px">
+    <div class="wrap">
+      <div class="head center"><span class="kicker">FAQ</span><h2>Häufige Fragen</h2></div>
+      <div class="faq">
+        <details><summary>Ist LellekClient kostenlos?</summary><p>Ja. Du brauchst nur ein Microsoft-Konto mit Minecraft Java Edition. Die Anmeldung läuft im offiziellen Microsoft-Fenster – dein Passwort sieht der Launcher nie.</p></details>
+        <details><summary>Läuft LellekClient auf dem Mac?</summary><p>Ja, auf Apple-Silicon-Macs (M1–M4) und Intel-Macs. Die App ist nicht von Apple notarisiert: beim ersten Start Rechtsklick auf die App → „Öffnen“. Meldet macOS „beschädigt“, hilft im Terminal einmal <code>xattr -cr /Applications/LellekClient.app</code>.</p></details>
+        <details><summary>Ist LellekHUD auf Servern erlaubt?</summary><p>LellekHUD zeigt Informationen an und enthält keine Cheats. Ob HUD-Mods erlaubt sind, regelt jeder Server selbst – im Zweifel die Server-Regeln lesen.</p></details>
+        <details><summary>Kann ich meine Mods und Welten mitnehmen?</summary><p>Ja. Unter Profile → „Aus anderem Launcher“ übernimmst du Mods, Welten, Einstellungen und Serverlisten aus dem offiziellen Launcher, Prism, MultiMC, CurseForge, Modrinth-App, ATLauncher, Lunar, Feather und NoRisk.</p></details>
+        <details><summary>Wie funktioniert die Freundesliste?</summary><p>Beide nutzen LellekClient und tragen sich mit dem Minecraft-Namen ein. Jedes Minecraft-Konto hat seine eigene Liste – wechselst du das Konto, wechselt auch die Liste. Den Status kannst du in den Optionen abschalten.</p></details>
+        <details><summary>Wie bekomme ich Updates?</summary><p>Automatisch: Der Launcher meldet neue Versionen oben rechts. Unter Windows reicht ein Klick zum Installieren, auf dem Mac öffnet sich der Download.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap community">
+      <div class="comm">
+        <h3><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>Offener Quellcode</h3>
+        <p>Der komplette Launcher liegt auf GitHub – reinschauen, selbst bauen oder mitmachen.</p>
+        <a class="btn btn-soft btn-sm js-repo" href="#" target="_blank" rel="noopener">Zum Repository</a>
+      </div>
+      <div class="comm">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9.5"/></svg>Fehler gefunden?</h3>
+        <p>Beschreib kurz, was passiert ist, und häng – wenn vorhanden – den Crash-Report an. Der Launcher findet ihn unter Mods → „Letzten Absturz analysieren“.</p>
+        <a class="btn btn-soft btn-sm js-issues" href="#" target="_blank" rel="noopener">Fehler melden</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="final" id="download">
+    <div class="wrap">
+      <img class="logo" src="img/logo.webp" alt="" width="110" height="110">
+      <span class="kicker">Download · Version 2.1</span>
+      <h2>Bereit für deine nächste Runde?</h2>
+      <p>Installieren, mit Microsoft anmelden, Profil wählen, spielen. Updates kommen danach von selbst.</p>
+      <a class="btn btn-main js-dl-main" href="#download">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M12 3v12M6 10l6 6 6-6M4 21h16"/></svg>
+        <span class="js-dl-label">Download für Windows</span>
+      </a>
+      <div class="dl-links">
+        <a class="js-dl-win" href="#download">Windows 10/11 · 113 MB</a>
+        <a class="js-dl-mac-arm" href="#download">Mac Apple Silicon · 134 MB</a>
+        <a class="js-dl-mac-intel" href="#download">Mac Intel · 139 MB</a>
+        <a class="js-releases" href="#" target="_blank" rel="noopener">Alle Versionen</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand"><a class="brand" href="#top"><img src="img/logo.webp" alt="" width="38" height="38">LellekClient</a><p>Der Minecraft-Launcher für alle Versionen – mit Mods, Freunden, Server und eigenem Design.</p></div>
+      <div><h4>Download</h4><ul><li><a class="js-dl-win" href="#download">Windows</a></li><li><a class="js-dl-mac-arm" href="#download">Mac (Apple Silicon)</a></li><li><a class="js-dl-mac-intel" href="#download">Mac (Intel)</a></li><li><a class="js-releases" href="#" target="_blank" rel="noopener">Alle Versionen</a></li></ul></div>
+      <div><h4>Ressourcen</h4><ul><li><a href="#features">Features</a></li><li><a href="#news">News</a></li><li><a href="#faq">FAQ</a></li><li><a class="js-repo" href="#" target="_blank" rel="noopener">Quellcode</a></li></ul></div>
+      <div><h4>Hilfe</h4><ul><li><a class="js-issues" href="#" target="_blank" rel="noopener">Fehler melden</a></li><li><a href="#faq">Mac-Installation</a></li></ul></div>
+    </div>
+    <div class="f-bottom"><span>© 2026 LellekClient</span><span>Kein offizielles Minecraft-Produkt. Nicht von Mojang oder Microsoft genehmigt oder mit ihnen verbunden.</span></div>
+  </div>
+</footer>
+
+<script>
+  // Downloads liegen als GitHub-Release; „latest/download“ zeigt immer auf die neueste Version.
+  const REPO = 'https://github.com/conlog06/LellekClient';
+  const DL = {
+    win: REPO + '/releases/latest/download/LellekClient-Setup-Windows.exe',
+    macArm: REPO + '/releases/latest/download/LellekClient-Mac-AppleSilicon.zip',
+    macIntel: REPO + '/releases/latest/download/LellekClient-Mac-Intel.zip',
+  };
+  const isMac = /Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
+  const setLink = (sel, url) => document.querySelectorAll(sel).forEach(a => { a.href = url; a.target = '_blank'; a.rel = 'noopener'; });
+  setLink('.js-dl-win', DL.win); setLink('.js-dl-mac-arm', DL.macArm); setLink('.js-dl-mac-intel', DL.macIntel);
+  setLink('.js-dl-main', isMac ? DL.macArm : DL.win);
+  setLink('.js-repo', REPO); setLink('.js-issues', REPO + '/issues'); setLink('.js-releases', REPO + '/releases');
+  if (isMac) document.querySelectorAll('.js-dl-label').forEach(s => { s.textContent = 'Download für Mac'; });
+
+  // Navigation bekommt beim Scrollen einen Hintergrund
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('solid', window.scrollY > 30);
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+  // Launcher-Modell zum Ausprobieren
+  const list = document.getElementById('plist'), play = document.getElementById('playBtn'), sub = document.getElementById('playSub');
+  const fill = document.getElementById('barFill'), text = document.getElementById('barText');
+  let busy = false;
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || busy) return;
+    list.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    sub.textContent = `${b.dataset.name} · ${b.dataset.sub}`;
+    fill.style.width = '0'; text.textContent = 'Bereit';
+  });
+  play.addEventListener('click', () => {
+    if (busy) return; busy = true; play.disabled = true;
+    const steps = [['Java prüfen', 15], ['Bibliotheken laden', 40], ['Assets laden', 70], ['Mods prüfen', 88], ['Minecraft startet', 100]];
+    let i = 0;
+    const next = () => {
+      if (i >= steps.length) { text.textContent = 'Läuft – viel Spaß!'; play.firstChild.textContent = 'Läuft'; setTimeout(() => { busy = false; play.disabled = false; play.firstChild.textContent = 'Spielen'; fill.style.width = '0'; text.textContent = 'Bereit'; }, 2200); return; }
+      const [t, p] = steps[i++]; text.textContent = `${t} … ${p} %`; fill.style.width = p + '%'; setTimeout(next, 520);
+    };
+    next();
+  });
+</script>
+
+</body>
+</html>

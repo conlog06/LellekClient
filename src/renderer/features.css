@@ -1,0 +1,85 @@
+/* LellekClient 1.8 – Statistik, Befehlspalette, Diagnose, Mod-Sets, Server-Einstellungen */
+
+/* Statistik */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 10px 0 16px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.kpi-label { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+.kpi-value { font-size: 24px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi-sub { color: var(--muted); font-size: 12px; }
+.stats-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
+.stats-grid .card h3 { margin: 0 0 10px; }
+.stats-grid .card:hover { border-color: var(--line); }
+.daychart { position: relative; display: grid; grid-template-columns: repeat(14, 1fr); gap: 6px; height: 170px; align-items: end; }
+.day { display: grid; grid-template-rows: 16px 1fr 18px; height: 100%; text-align: center; min-width: 0; }
+.day-track { position: relative; background: var(--bg); border-radius: 6px 6px 3px 3px; overflow: hidden; }
+.day-bar { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); border-radius: 6px 6px 0 0; transition: height .4s var(--ease); }
+.day:hover .day-bar { filter: brightness(1.15); }
+.day-val { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.day-lbl { font-size: 11px; color: var(--muted); padding-top: 3px; }
+.daychart .empty-note { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
+.hbars, #statsProfiles { display: flex; flex-direction: column; gap: 8px; }
+.hbar { display: grid; grid-template-columns: minmax(80px, 140px) 1fr auto; gap: 10px; align-items: center; cursor: pointer; font-size: 13px; }
+.hbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-track { height: 10px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+.hbar-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.hbar-val { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.toprow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.toprow:last-child { border-bottom: 0; }
+.toprow span.grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessions li { grid-template-columns: auto 1fr auto auto; }
+.sessions li.crash .dot { background: var(--danger); }
+.sessions .empty-li { display: block; color: var(--muted); }
+.sess-ok { color: var(--ok); font-size: 12px; min-width: 52px; text-align: right; }
+.sess-bad { color: var(--danger); font-size: 12px; min-width: 52px; text-align: right; }
+@media (max-width: 1100px) { .stats-grid { grid-template-columns: 1fr; } }
+
+/* Mod-Sets */
+.modset-row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.modset-row .select { min-width: 200px; padding: 6px 10px; }
+.modset-row button { padding: 6px 10px; font-size: 13px; }
+
+/* Diagnose */
+.diag { background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--danger); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+.diag b { display: block; margin-bottom: 4px; }
+.diag p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.diag-list { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; user-select: text; }
+#infoBody h3 { clear: both; }
+
+/* Befehlspalette */
+dialog.palette { width: 620px; padding: 12px; top: 12vh; margin-top: 0; }
+.palette .input { width: 100%; font-size: 16px; padding: 12px 14px; }
+#paletteList { list-style: none; margin: 10px 0 6px; padding: 0; max-height: 52vh; overflow-y: auto; }
+#paletteList li { display: grid; grid-template-columns: 86px 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+#paletteList li.sel { background: var(--accent-dim); }
+#paletteList li.sel b { color: var(--accent); }
+#paletteList li.none { display: block; color: var(--muted); cursor: default; }
+#paletteList .pg { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+#paletteList b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#paletteList .ph { font-size: 12px; color: var(--muted); }
+.palette-hint { margin: 0; font-size: 12px; text-align: right; }
+.kbd-btn { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; color: var(--muted); font-size: 12px; }
+.kbd-btn kbd { font: 11px var(--font); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--text); }
+.kbd-btn:hover { color: var(--text); }
+
+/* Eingabe-Dialog */
+#askDialog { width: 440px; }
+#askLabel { white-space: pre-line; color: var(--text); margin: 0 0 10px; }
+#askInput { width: 100%; }
+
+/* Server-Einstellungen */
+#serverPropsBox .grid2 { margin-bottom: 8px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+#serverPropsBox .select { min-width: 0; width: 100%; }
+#serverPropsBox .check { font-size: 13px; }
+
+/* Profil-Dialog */
+.jvm-row { margin-top: 6px; }
+
+/* 1.9 – Export-Auswahl, Updater */
+.export-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+.export-opt:hover { border-color: var(--accent); background: var(--bg); }
+.export-opt span { color: var(--muted); font-size: 13px; }
+.upd-chip { padding: 6px 12px; border-radius: 999px; background: var(--ok); color: #0E2414; font-size: 12px; font-weight: 700; }
+.upd-chip:hover { background: #95E3A6; }
+.upd-bar { width: 220px; height: 10px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+.upd-bar div { height: 100%; background: var(--accent); transition: width .2s; }
+#updateBanner .grow { min-width: 0; }

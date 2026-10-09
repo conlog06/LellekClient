@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>LellekClient</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="features.css" />
+  <link rel="stylesheet" href="features2.css" />
+</head>
+<body>
+  <!-- Linke Icon-Leiste -->
+  <nav class="rail">
+    <img class="rail-logo" src="logo.png" alt="LellekClient" />
+    <button class="rail-btn active" data-view="play"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg><span>Spielen</span></button>
+    <button class="rail-btn" data-view="profiles"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10h8M8 14h5" stroke-width="2"/></svg><span>Profile</span></button>
+    <button class="rail-btn" data-view="content"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span>Mods</span></button>
+    <button class="rail-btn" data-view="worlds"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke-width="1.5"/></svg><span>Welten</span></button>
+    <button class="rail-btn" data-view="server"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/></svg><span>Server</span></button>
+    <button class="rail-btn" data-view="skins"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="7" y="9" width="3" height="3"/><rect x="14" y="9" width="3" height="3"/><rect x="9" y="14" width="6" height="2"/></svg><span>Skins</span></button>
+    <button class="rail-btn" data-view="stats"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 17v-6M11 17V6M16 17v-9M20 17v-4" stroke-width="2.2"/></svg><span>Statistik</span></button>
+    <button class="rail-btn" data-view="friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9 0 5 1.9 5 4.9"/></svg><span>Freunde</span></button>
+    <button class="rail-btn" data-view="design"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/></svg><span>Design</span></button>
+    <div class="rail-spacer"></div>
+    <button class="rail-btn" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke-width="2"/></svg><span>Optionen</span></button>
+  </nav>
+
+  <div class="shell">
+    <!-- Kopfzeile -->
+    <header class="topbar">
+      <div class="wordmark"><img src="logo.png" alt="" /><span>LellekClient</span> <small id="clientVersion"></small></div>
+      <div class="topbar-right">
+        <button class="streamer-chip hidden" id="streamerChip" title="Streamer-Modus (Strg+Umschalt+S)">● LIVE · Streamer-Modus</button>
+        <button class="kbd-btn" id="paletteBtn" title="Befehlspalette">Suchen & Befehle <kbd>Strg</kbd><kbd>K</kbd></button>
+        <span class="chip" id="profileCount">0 Profile</span>
+        <div id="account" class="account"></div>
+      </div>
+    </header>
+
+    <!-- Spielen -->
+    <section class="view active" data-view="play">
+      <div class="hero">
+        <div class="hero-grid"></div>
+        <div class="hero-center">
+          <div class="nametag" id="nameTag">Gast</div>
+          <canvas id="skinCanvas" width="360" height="440"></canvas>
+          <div id="quickTiles" class="quick-tiles"></div>
+          <div class="launch-row">
+            <button class="launch" id="playBtn">
+              <b>Spielen</b>
+              <small id="launchSub">Kein Profil</small>
+            </button>
+            <div class="launch-pick">
+              <button class="launch-pick-btn" id="pickProfile" title="Profil wechseln">▾</button>
+              <ul class="launch-menu hidden" id="launchMenu"></ul>
+            </div>
+          </div>
+        </div>
+        <aside class="news">
+          <div id="friendsMini" class="friends-mini hidden"><h3>Freunde online</h3><div id="friendsMiniList"></div></div>
+          <h3>Neuigkeiten</h3>
+          <div id="newsList"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section class="view" data-view="profiles">
+      <div class="view-head">
+        <div><h2>Profile</h2><p class="muted">Jedes Profil hat eigene Mods, Welten und Einstellungen.</p></div>
+        <div class="row gap"><input id="profileSearch" class="input" placeholder="Profile suchen…" style="width:180px" /><select id="profileSort" class="select" style="min-width:150px"><option value="name">Nach Name</option><option value="played">Zuletzt gespielt</option><option value="time">Meiste Spielzeit</option></select><button class="ghost" id="importOther">Aus anderem Launcher</button><button class="ghost" id="importProfile" title="LellekClient-Profil (.zip) oder Modrinth-Modpack (.mrpack)">Profil / .mrpack importieren</button><button class="primary" id="newProfile">Neues Profil</button></div>
+      </div>
+      <div id="updateBanner" class="banner hidden"></div>
+      <div id="statsBar" class="stats"></div>
+      <h3>Vorlagen mit LellekHUD</h3>
+      <div id="presetList" class="cards"></div>
+      <h3>Deine Profile</h3>
+      <div id="profileCards" class="cards"></div>
+    </section>
+
+    <!-- Inhalte -->
+    <section class="view" data-view="content">
+      <div class="view-head">
+        <div><h2 id="contentTitle">Mods</h2><p class="muted" id="contentHint"></p></div>
+        <select id="contentProfile" class="select"></select>
+      </div>
+      <div class="subtabs">
+        <div class="seg" id="kindSeg">
+          <button data-kind="mods" class="active">Mods</button>
+          <button data-kind="shaderpacks">Shader</button>
+          <button data-kind="resourcepacks">Resourcepacks</button>
+          <button data-kind="datapacks">Datapacks</button>
+          <button data-kind="modpacks">Modpacks</button>
+        </div>
+        <div class="seg" id="sourceSeg">
+          <button data-source="installed" class="active">Installiert</button>
+          <button data-source="modrinth">Modrinth</button>
+          <button data-source="curseforge">CurseForge</button>
+        </div>
+      </div>
+
+      <div id="installedPane">
+        <div class="row end gap">
+          <span id="updateInfo" class="muted grow"></span>
+          <button class="ghost" id="checkConflicts">Konflikte prüfen</button>
+          <button class="ghost" id="safeMode">Sicherer Start (ohne Mods)</button>
+          <button class="ghost" id="checkUpdates">Updates prüfen</button>
+          <button class="primary hidden" id="updateAll">Alle aktualisieren</button>
+          <button class="ghost" id="contentFolder">Ordner öffnen</button>
+          <button class="primary" id="contentAdd">Datei hinzufügen</button>
+        </div>
+        <div class="row gap modset-row hidden" id="modsetRow"><span class="muted">Mod-Set</span><select id="modsetSelect" class="select"></select><button class="ghost" id="modsetApply" title="Nur die Mods dieses Sets aktivieren, alle anderen deaktivieren">Anwenden</button><button class="ghost" id="modsetSave">Aktuelle Auswahl speichern…</button><button class="ghost danger" id="modsetDelete">Löschen</button><span class="grow"></span><button class="ghost" id="modListCopy">Mod-Liste kopieren</button><button class="ghost" id="diagnoseBtn">Letzten Absturz analysieren</button></div>
+        <ul id="contentList" class="files"></ul>
+        <p id="contentEmpty" class="muted hidden"></p>
+      </div>
+
+      <div id="browsePane" class="hidden">
+        <div class="row gap">
+          <input id="browseQuery" class="input grow" placeholder="Suchen…" />
+          <button class="primary" id="browseGo">Suchen</button>
+        </div>
+        <p id="browseInfo" class="muted"></p>
+        <div id="browseResults" class="results"></div>
+        <div class="row end gap"><button class="ghost hidden" id="browseMore">Mehr laden</button></div>
+      </div>
+    </section>
+
+    <!-- Welten -->
+    <section class="view" data-view="worlds">
+      <div class="view-head">
+        <div><h2>Welten</h2><p class="muted">Welten eines Profils sichern, importieren oder in ein anderes Profil kopieren.</p></div>
+        <div class="row gap"><select id="worldsProfile" class="select"></select><button class="ghost" id="worldsFolder">Ordner</button><button class="primary" id="worldsImport">Importieren (ZIP)</button></div>
+      </div>
+      <div class="seg" id="worldsSeg" style="margin:6px 0 14px"><button data-wtab="worlds" class="active">Welten</button><button data-wtab="backups">Backups</button><button data-wtab="shots">Screenshots</button></div>
+      <div id="worldsPane">
+        <div id="worldList" class="world-list"></div>
+        <p id="worldsEmpty" class="muted hidden">Keine Welten in diesem Profil.</p>
+      </div>
+      <div id="backupsPane" class="hidden">
+        <div class="row gap" style="margin-bottom:10px"><button class="primary" id="backupNow">Jetzt sichern</button><button class="ghost" id="backupFolder">Ordner</button><span class="muted">Vor jedem Spielstart wird automatisch gesichert, die letzten 5 bleiben.</span></div>
+        <ul id="backupList" class="files"></ul>
+      </div>
+      <div id="shotsPane" class="hidden">
+        <div class="row gap" style="margin-bottom:10px"><button class="ghost" id="shotsFolder">Ordner</button><span class="muted" id="shotsInfo"></span></div>
+        <div id="shotGrid" class="shot-grid"></div>
+      </div>
+    </section>
+
+    <!-- Server -->
+    <section class="view" data-view="server">
+      <div class="view-head">
+        <div><h2>Server hosten</h2><p class="muted">Dein eigener Server (Vanilla, Paper oder Fabric) – im selben Netz über die LAN-Adresse, von außen über den playit.gg-Tunnel.</p></div>
+        <select id="serverProfile" class="select"></select>
+      </div>
+      <h3>Server-Favoriten – Direktverbindung</h3>
+      <div class="row gap" style="margin-bottom:8px"><input id="favName" class="input" placeholder="Name" style="width:160px" /><input id="favIp" class="input grow" placeholder="play.beispiel.net oder ip:port" /><button class="primary" id="favAdd">Hinzufügen</button><button class="ghost" id="favImport">Aus Serverliste des Profils</button></div>
+      <div id="favList" class="cards" style="margin-bottom:22px"></div>
+      <h3>Eigener Server</h3>
+      <div class="server-layout">
+        <div class="card server-card">
+          <div id="serverStatus" class="row gap"></div>
+          <div class="grid2" style="margin-top:12px">
+            <label class="form-label">Port<input id="serverPort" class="input" type="number" min="1024" max="65535" value="25565" /></label>
+            <label class="form-label">RAM (GB)<input id="serverMemory" class="input" type="number" min="1" max="16" value="2" /></label>
+            <label class="form-label" style="grid-column:1/-1">Server-Software<select id="serverType" class="select"><option value="vanilla">Vanilla (offiziell)</option><option value="paper">Paper – schnell, mit Plugins</option><option value="fabric">Fabric – mit Server-Mods</option></select></label>
+          </div>
+          <label class="check" id="eulaRow"><input type="checkbox" id="serverEula" /> Ich akzeptiere die <a href="#" id="eulaLink">Minecraft-EULA</a></label>
+          <div class="row gap" style="margin-top:12px">
+            <button class="primary" id="serverSetup">Einrichten</button>
+            <button class="primary hidden" id="serverStart">Starten</button>
+            <button class="ghost danger hidden" id="serverStop">Stoppen</button>
+            <button class="ghost" id="serverFolder">Ordner</button>
+          </div>
+          <h3>Welt</h3>
+          <div class="row gap"><select id="serverWorld" class="select"></select><button class="ghost" id="serverImportWorld">Aus Profil übernehmen</button></div>
+          <p class="muted" id="serverAddr"></p>
+          <div id="serverPropsBox" class="hidden">
+            <h3>Server-Einstellungen</h3>
+            <div class="grid2">
+              <label class="form-label" style="grid-column:1/-1">MOTD (Text in der Serverliste)<input id="sp-motd" class="input" maxlength="59" /></label>
+              <label class="form-label">Spielmodus<select id="sp-gamemode" class="select"><option value="survival">Überleben</option><option value="creative">Kreativ</option><option value="adventure">Abenteuer</option><option value="spectator">Zuschauer</option></select></label>
+              <label class="form-label">Schwierigkeit<select id="sp-difficulty" class="select"><option value="peaceful">Friedlich</option><option value="easy">Einfach</option><option value="normal">Normal</option><option value="hard">Schwer</option></select></label>
+              <label class="form-label">Max. Spieler<input id="sp-max-players" type="number" min="1" max="500" class="input" /></label>
+              <label class="form-label">Sichtweite (Chunks)<input id="sp-view-distance" type="number" min="3" max="32" class="input" /></label>
+              <label class="form-label">Spawn-Schutz (Blöcke)<input id="sp-spawn-protection" type="number" min="0" max="64" class="input" /></label>
+              <label class="form-label">Seed (nur neue Welt)<input id="sp-level-seed" class="input" placeholder="zufällig" /></label>
+            </div>
+            <div class="row gap">
+              <label class="check"><input type="checkbox" id="sp-pvp" /> PvP</label>
+              <label class="check"><input type="checkbox" id="sp-white-list" /> Whitelist</label>
+              <label class="check"><input type="checkbox" id="sp-online-mode" /> Nur echte Accounts</label>
+              <label class="check"><input type="checkbox" id="sp-allow-flight" /> Fliegen erlaubt</label>
+              <label class="check"><input type="checkbox" id="sp-hardcore" /> Hardcore</label>
+              <label class="check"><input type="checkbox" id="sp-enable-command-block" /> Befehlsblöcke</label>
+            </div>
+            <div class="row gap" style="margin-top:10px"><button class="primary" id="serverPropsSave">Einstellungen speichern</button><span class="muted" id="serverPropsState"></span></div>
+          </div>
+          <h3>Freunde von außerhalb (ohne Portfreigabe)</h3>
+          <div class="row gap"><button class="ghost" id="tunnelStart">playit.gg-Tunnel starten</button><button class="ghost danger hidden" id="tunnelStop">Tunnel stoppen</button></div>
+          <p class="muted small-note">Beim ersten Start öffnet sich das playit-Fenster mit einem Link: kostenlos anmelden, Tunnel „Minecraft Java“ auf Port <span id="tunnelPort">25565</span> anlegen und die angezeigte Adresse hier eintragen.</p>
+          <div class="row gap"><input id="publicAddress" class="input grow" placeholder="z. B. name.gl.joinmc.link" /><button class="ghost" id="publicSave">Speichern</button><button class="ghost" id="publicCopy">Kopieren</button></div>
+          <p class="muted">Für Freunde außerhalb deines Netzes brauchst du eine Portfreigabe im Router oder nutzt „Essential Mod“ (Ausstattung → Social), das Welten ohne Server teilt.</p>
+        </div>
+        <div>
+          <h3>Konsole</h3>
+          <pre id="serverLog" class="log server-log"></pre>
+          <div class="row gap"><input id="serverCmd" class="input grow" placeholder="Befehl, z. B. op Name" /><button class="ghost" id="serverSend">Senden</button></div>
+          <div id="pluginBox" class="hidden">
+            <h3 id="pluginTitle">Plugins</h3>
+            <ul id="pluginList" class="files"></ul>
+            <div class="row gap" style="margin-top:10px"><input id="pluginQuery" class="input grow" placeholder="Auf Modrinth suchen, z. B. EssentialsX, LuckPerms, WorldEdit" /><button class="primary" id="pluginSearch">Suchen</button><button class="ghost" id="pluginFolder">Ordner</button></div>
+            <div id="pluginResults" class="results"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Skins -->
+    <section class="view" data-view="skins">
+      <div class="view-head">
+        <div><h2>Skins & Capes</h2><p class="muted">Bibliothek mit Vorschau – Anwenden lädt den Skin sofort in dein Konto.</p></div>
+        <div class="row gap"><button class="ghost" id="skinSaveCurrent">Aktuellen Skin speichern</button><button class="primary" id="skinAdd">PNG hinzufügen</button></div>
+      </div>
+      <div id="skinsLoggedOut" class="empty"><p>Melde dich oben rechts an, um Skin und Cape zu ändern. Die Bibliothek kannst du trotzdem füllen.</p></div>
+      <div class="skin-layout">
+        <div>
+          <h3>Bibliothek</h3>
+          <div class="row gap" style="margin-bottom:8px">
+            <label class="check"><input type="radio" name="variant" value="classic" checked /> Classic</label>
+            <label class="check"><input type="radio" name="variant" value="slim" /> Slim</label>
+          </div>
+          <div id="skinGrid" class="skin-grid"></div>
+        </div>
+        <aside class="skin-side">
+          <h3>Aktuell</h3>
+          <canvas id="skinCurrent" width="200" height="260"></canvas>
+          <h3>Cape (Mojang)</h3>
+          <div id="capeList" class="capes"></div>
+          <h3>Eigenes Cape (LellekClient)</h3>
+          <div id="customCape" class="custom-cape"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Freunde -->
+    <section class="view" data-view="friends">
+      <div class="view-head">
+        <div><h2>Freunde</h2><p class="muted">Sieh, wer gerade spielt und auf welchem Server – und tritt mit einem Klick bei.</p></div>
+        <div class="row gap"><input id="friendName" class="input" placeholder="Minecraft-Name" maxlength="16" style="width:200px" /><button class="primary" id="friendAdd">Hinzufügen</button></div>
+      </div>
+      <div id="friendsServer" class="banner hidden"></div>
+      <div id="friendList" class="cards friend-cards"></div>
+    </section>
+
+    <!-- Design -->
+    <section class="view" data-view="design">
+      <div class="view-head">
+        <div><h2>Design</h2><p class="muted">Alles wirkt sofort – du siehst die Änderungen live.</p></div>
+        <div class="row gap"><button class="ghost" id="designReset">Auf Standard zurücksetzen</button></div>
+      </div>
+      <div class="design-grid">
+        <div class="card"><h3>Farbschema</h3><div id="themeGrid" class="theme-grid"></div>
+          <label class="form-label">Akzentfarbe<div class="row gap"><input id="dAccent" type="color" value="#FFB400" /><span class="muted">überschreibt die Farbe des Schemas</span></div></label></div>
+        <div class="card"><h3>Hintergrund der Startseite</h3>
+          <div class="row gap"><button class="primary" id="bgPick">Bild wählen…</button><button class="ghost" id="bgClear">Entfernen</button></div>
+          <label class="form-label">Abdunkeln <span id="dDimVal" class="muted"></span><input id="dDim" type="range" min="0" max="85" value="45" /></label>
+          <label class="form-label">Unschärfe <span id="dBlurVal" class="muted"></span><input id="dBlur" type="range" min="0" max="20" value="0" /></label>
+          <label class="check"><input type="checkbox" id="dGrid" checked /> Leuchtendes Gitter animieren</label></div>
+        <div class="card"><h3>Oberfläche</h3>
+          <label class="form-label">Größe <span id="dZoomVal" class="muted"></span><input id="dZoom" type="range" min="80" max="130" step="5" value="100" /></label>
+          <label class="check"><input type="checkbox" id="dCompact" /> Kompakt (weniger Abstände)</label>
+          <label class="check"><input type="checkbox" id="dNews" checked /> Neuigkeiten-Spalte auf der Startseite</label>
+          <label class="check"><input type="checkbox" id="dMotion" /> Animationen reduzieren</label></div>
+        <div class="card"><h3>Skin auf der Startseite</h3>
+          <label class="form-label">Animation<select id="dSkinAnim" class="select"><option value="idle">Stehen</option><option value="walk">Gehen</option><option value="run">Rennen</option><option value="fly">Fliegen</option><option value="none">Aus</option></select></label>
+          <label class="check"><input type="checkbox" id="dSkinRotate" /> Langsam drehen</label>
+          <label class="check"><input type="checkbox" id="dSkinHide" /> Skin ausblenden</label></div>
+        <div class="card"><h3>Branding</h3>
+          <label class="form-label">Titel oben links<input id="dTitle" class="input" maxlength="24" placeholder="LellekClient" /></label>
+          <label class="form-label">Text im Minecraft-Hauptmenü (unten links)<input id="dMenuBrand" class="input" maxlength="40" placeholder="LellekClient 2.0.0" /><span class="muted">Gilt ab dem nächsten Spielstart.</span></label></div>
+        <div class="card"><h3>Eigenes CSS</h3>
+          <textarea id="dCss" class="input code-area" spellcheck="false" placeholder=".launch { border-radius: 0; }&#10;:root { --panel: #101418; }"></textarea>
+          <div class="row gap" style="margin-top:8px"><button class="primary" id="dCssApply">Anwenden</button><span class="muted">Für Fortgeschrittene – alle Farben sind CSS-Variablen (--bg, --panel, --accent …).</span></div></div>
+      </div>
+    </section>
+
+    <!-- Statistik -->
+    <section class="view" data-view="stats">
+      <div class="view-head">
+        <div><h2>Statistik</h2><p class="muted">Spielzeit, Sitzungen, Server und Abstürze – jeder Start wird automatisch mitgezählt.</p></div>
+        <div class="row gap"><button class="ghost" id="statsReset">Verlauf leeren</button></div>
+      </div>
+      <div id="statsKpis" class="kpis"></div>
+      <div class="stats-grid">
+        <div class="card"><h3>Letzte 14 Tage</h3><div id="statsDays" class="daychart"></div></div>
+        <div class="card"><h3>Profile nach Spielzeit</h3><div id="statsProfiles"></div></div>
+        <div class="card"><h3>Meistbesuchte Server</h3><div id="statsServers"></div></div>
+        <div class="card"><h3>Meistgespielte Welten</h3><div id="statsWorlds"></div></div>
+      </div>
+      <h3>Letzte Sitzungen</h3>
+      <ul id="statsRecent" class="files sessions"></ul>
+    </section>
+
+    <!-- Einstellungen -->
+    <section class="view" data-view="settings">
+      <div class="view-head"><div><h2>Optionen</h2></div></div>
+      <div class="card opt-card" id="streamerCard">
+        <h3>Streamer-Modus</h3>
+        <label class="check"><input type="checkbox" id="stEnabled" /> <b>Streamer-Modus an</b> <span class="muted">(Strg+Umschalt+S)</span></label>
+        <label class="check"><input type="checkbox" id="stAuto" /> Automatisch an, wenn OBS, Streamlabs, XSplit oder Twitch Studio läuft</label>
+        <div class="row gap st-opts">
+          <label class="check"><input type="checkbox" id="stHideName" /> Namen verbergen</label>
+          <label class="check"><input type="checkbox" id="stHideIps" /> Server-Adressen, IPs, Seeds verbergen</label>
+          <label class="check"><input type="checkbox" id="stDiscord" /> Discord ohne Server/Welt</label>
+          <label class="check"><input type="checkbox" id="stMute" /> Keine Benachrichtigungen</label>
+        </div>
+        <p class="muted" id="stState"></p>
+      </div>
+      <div class="card opt-card"><h3>PC-Check</h3><div class="row gap"><button class="primary" id="pcCheck">PC prüfen</button><span class="muted">RAM, Prozessor, Grafikkarte und Treiber – mit passenden Einstellungen für deine Profile.</span></div></div>
+      <form id="settingsForm" class="form">
+        <label>Standard-Arbeitsspeicher (GB)<input name="memory" type="number" min="1" max="32" class="input" /></label>
+        <label class="check"><input type="checkbox" name="closeOnLaunch" /> Launcher beim Spielstart minimieren</label>
+        <label class="check"><input type="checkbox" name="logWindow" checked /> Eigenes Log-Fenster pro Start öffnen</label>
+        <label class="check"><input type="checkbox" name="backupWorlds" checked /> Welten vor jedem Start sichern</label>
+        <label class="check"><input type="checkbox" name="notifications" checked /> Windows-Benachrichtigungen (Absturz, Modpack fertig, Update)</label>
+        <label class="check"><input type="checkbox" name="autoUpdateMods" /> Mods vor jedem Start automatisch aktualisieren (Modrinth & CurseForge)</label>
+        <label class="check"><input type="checkbox" name="tray" checked /> Symbol im Infobereich mit Schnellstart der Profile</label>
+        <label>Akzentfarbe<div class="row gap"><input name="accent" type="color" value="#FFB400" /><span class="muted">Gold ist Standard – jede Farbe geht.</span></div></label>
+        <input type="hidden" name="curseforgeKey" />
+        <h3>Updates</h3>
+        <label>Update-Quelle<input name="updateUrl" class="input" placeholder="https://api.github.com/repos/DEIN-NAME/LellekClient/releases/latest" />
+          <span class="muted">GitHub-Releases-API-Link oder eine eigene JSON-URL mit „version“ und „url“. Der Launcher prüft beim Start und zeigt einen Hinweis.</span></label>
+        <div class="row gap"><button type="button" class="ghost" id="updateNow">Jetzt prüfen</button><span class="muted" id="updateState"></span></div>
+        <h3>Autostart</h3>
+        <label class="check"><input type="checkbox" name="autostart" /> LellekClient mit Windows starten (im Infobereich)</label>
+        <h3>Java</h3>
+        <div id="javaList" class="row gap"></div>
+        <div class="row gap"><button type="button" class="ghost" id="javaInstall8">Java 8 laden</button><button type="button" class="ghost" id="javaInstall17">Java 17 laden</button><button type="button" class="ghost" id="javaInstall21">Java 21 laden</button><button type="button" class="ghost" id="javaInstall25">Java 25 laden</button></div>
+        <h3>Speicherplatz</h3>
+        <div class="row gap"><span class="muted" id="diskInfo"></span><button type="button" class="ghost" id="diskClean">Logs & Cache aufräumen</button></div>
+        <h3>Freunde & Online-Status</h3>
+        <label>Presence-Server<input name="presenceServer" class="input" placeholder="https://render-friends-lellek-client-v1.onrender.com (Standard)" />
+          <span class="muted" id="presenceState">Leer lassen für den LellekClient-Server. Nur ausfüllen, wenn du einen eigenen betreibst (server/presence-server.js).</span></label>
+        <label class="check"><input type="checkbox" name="sharePresence" checked /> Meinen Status mit Freunden teilen</label>
+        <label class="check"><input type="checkbox" name="friendNotify" checked /> Benachrichtigen, wenn ein Freund online kommt</label>
+        <h3>Screenshots an Discord</h3>
+        <label>Discord-Webhook<input name="discordWebhook" class="input" placeholder="https://discord.com/api/webhooks/…" />
+          <span class="muted">In Discord: Kanal-Einstellungen → Integrationen → Webhooks → Neuer Webhook → URL kopieren.</span></label>
+        <h3>Discord</h3>
+        <label class="check"><input type="checkbox" name="discord" checked /> Discord-Status anzeigen (Launcher offen, Version, Server oder Welt)</label>
+        <details><summary class="muted">Erweitert (nur nötig, solange keine feste LellekClient-App-ID eingebaut ist)</summary>
+        <label>Discord-App-ID<input name="discordAppId" class="input" placeholder="18-stellige Application ID" /></label></details>
+        <label>Discord-Bild-URL<input name="discordImageUrl" class="input" placeholder="https://… (direkter Link zu einem PNG/JPG)" />
+          <span class="muted">Einfachster Weg für das Bild: Logo irgendwo hochladen (z. B. GitHub, imgur) und den direkten Link hier eintragen. Alternativ im Developer Portal unter Rich Presence → Art Assets ein Bild mit dem Namen „logo“ hochladen und dieses Feld leer lassen.</span></label>
+        <h3>.minecraft</h3>
+        <label class="check"><input type="checkbox" name="importVanilla" checked /> Einstellungen (options.txt, Serverliste) beim ersten Start eines Profils aus .minecraft übernehmen</label>
+        <p class="muted" id="vanillaInfo"></p>
+        <h3>Cosmetics-Server</h3>
+        <label>Server-URL<input name="cosmeticsServer" class="input" placeholder="http://127.0.0.1:8765" />
+          <span class="muted" id="cosmeticsState">Damit andere LellekClient-Spieler dein Cosmetic und Cape sehen. Zum Testen lokal (node server.js), für alle auf einem kleinen VPS.</span></label>
+        <h3>Voice-Server</h3>
+        <label>Server-URL<input name="voiceServer" class="input" placeholder="http://127.0.0.1:8766" />
+          <span class="muted" id="voiceState">Proximity-Voice-Chat mit Push-to-Talk (B) in jeder Version. Server: LellekVoiceServer, Port für TCP und UDP freigeben.</span></label>
+        <h3>Spotify</h3>
+        <label>Spotify-Client-ID<input name="spotifyClientId" class="input" placeholder="32 Zeichen" />
+          <span class="muted">Einmalig unter developer.spotify.com/dashboard eine App anlegen, Redirect-URI <code>http://127.0.0.1:8737/callback</code> eintragen und die Client-ID hier einfügen. Speichern, dann verbinden.</span></label>
+        <div class="row gap" id="spotifyRow"></div>
+        <h3>Komplett-Backup</h3>
+        <div class="row gap"><button type="button" class="ghost" id="backupAll">Alle Daten sichern (ZIP)</button><button type="button" class="ghost" id="restoreAll">Aus Backup wiederherstellen</button><span class="muted">Profile, Mods, Welten, Einstellungen, Skins – zum Umzug auf einen anderen PC.</span></div>
+        <p class="muted">Daten liegen in <code id="dataDir"></code> <span id="portableHint"></span></p>
+        <p class="muted">Portable-Modus: eine leere Datei <code>portable.txt</code> neben die LellekClient.exe legen – dann liegen alle Daten im Ordner <code>LellekClient-Daten</code> daneben (z. B. für einen USB-Stick).</p>
+        <div class="row gap">
+          <button type="button" class="ghost" id="openDataDir">Datenordner öffnen</button>
+          <button type="submit" class="primary">Speichern</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Status -->
+    <footer class="status">
+      <div class="progress"><div id="progressBar"></div><span id="progressText">Bereit</span></div>
+      <button class="ghost small" id="logToggle">Log</button>
+      <button class="ghost small" id="logFile" title="Log-Datei des letzten Starts öffnen">Log-Datei</button>
+      <button class="ghost small" id="logFolder" title="Alle Logs">Logs</button>
+    </footer>
+    <pre id="log" class="log hidden"></pre>
+  </div>
+
+  <!-- Profil-Dialog -->
+  <dialog id="profileDialog">
+    <form method="dialog" id="profileForm">
+      <h2 id="dialogTitle">Neues Profil</h2>
+      <div class="row gap"><label class="grow">Name<input name="name" required placeholder="z. B. PvP 1.8.9" class="input" /></label><label>Symbol<input name="icon" class="input" maxlength="2" placeholder="⚔️" style="width:60px;text-align:center" /></label><label>Farbe<input name="color" type="color" value="#FFB400" /></label></div>
+      <div class="grid2">
+        <label>Version<select name="version" id="versionSelect" class="select"></select></label>
+        <label>Mod-Loader
+          <select name="loader" id="loaderSelect" class="select">
+            <option value="">Vanilla</option><option value="fabric">Fabric</option><option value="forge">Forge</option><option value="neoforge">NeoForge</option>
+          </select>
+        </label>
+      </div>
+      <label id="loaderVersionRow" class="hidden">Loader-Version<select name="loaderVersion" id="loaderVersionSelect" class="select"></select></label>
+      <label class="check"><input type="checkbox" id="showSnapshots" /> Snapshots und alte Versionen anzeigen</label>
+      <div class="grid2">
+        <label>Arbeitsspeicher (GB)<input name="memory" type="number" min="1" max="32" value="4" class="input" /></label>
+        <label>Eigener Java-Pfad (optional)<input name="javaPath" placeholder="leer = automatisch" class="input" /></label>
+      </div>
+      <div class="grid2">
+        <label>Fenster (Breite × Höhe)<div class="row gap"><input name="width" type="number" class="input" placeholder="854" style="width:90px" /><input name="height" type="number" class="input" placeholder="480" style="width:90px" /><label class="check"><input type="checkbox" name="fullscreen" /> Vollbild</label></div></label>
+        <label>JVM-Argumente (optional)<input name="jvmArgs" class="input" placeholder="z. B. -XX:+UseG1GC" /></label>
+      </div>
+      <label>Beim Start direkt verbinden mit (optional)<input name="autoServer" class="input" placeholder="play.beispiel.net oder leer" /></label>
+      <label class="check"><input type="checkbox" name="linkVanilla" /> Welten, Resourcepacks und Screenshots mit .minecraft teilen</label>
+      <div class="row gap"><button type="button" class="ghost hidden" id="importVanillaNow">Einstellungen jetzt aus .minecraft übernehmen</button></div>
+      <label>Konto für dieses Profil<select name="accountId" id="accountSelect" class="select"></select>
+        <span class="muted">Mit einem eigenen Konto kann dieses Profil parallel zu einem anderen laufen – z. B. zwei Accounts auf einem Server.</span></label>
+      <div class="row end gap">
+        <button type="button" class="ghost danger hidden" id="deleteProfile">Löschen</button>
+        <button type="button" class="ghost" id="cancelProfile">Abbrechen</button>
+        <button type="submit" class="primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ausstattung -->
+  <dialog id="bundleDialog">
+    <h2>Ausstattung</h2>
+    <p class="muted" id="bundleSub"></p>
+    <div id="bundleList" class="bundle-list"></div>
+    <div class="row end gap">
+      <button type="button" class="ghost" id="bundleClose">Schließen</button>
+      <button type="button" class="primary" id="bundleInstall">Ausgewählte installieren</button>
+    </div>
+  </dialog>
+
+  <!-- Details (Mods, Packs, Welten) -->
+  <dialog id="infoDialog">
+    <div id="infoBody"></div>
+    <div class="row end gap"><button type="button" class="ghost" id="infoClose">Schließen</button></div>
+  </dialog>
+
+  <!-- Import aus anderen Launchern -->
+  <dialog id="importDialog">
+    <h2>Aus anderem Launcher importieren</h2>
+    <p class="muted" id="importSub">Gefunden werden: offizieller Launcher, Prism, MultiMC, CurseForge-App, Modrinth-App, ATLauncher, Lunar, Feather, NoRisk. Client-eigene Mods (Lunar/NoRisk) werden nicht übernommen – die laufen nur dort; Welten, Einstellungen und Serverlisten schon.</p>
+    <div class="row gap" style="margin:6px 0 10px">
+      <label class="check"><input type="checkbox" id="impMods" checked /> Mods & Configs</label>
+      <label class="check"><input type="checkbox" id="impWorlds" checked /> Welten</label>
+      <label class="check"><input type="checkbox" id="impSettings" checked /> Einstellungen & Serverliste</label>
+      <label class="check"><input type="checkbox" id="impPacks" checked /> Resourcepacks, Shader, Screenshots</label>
+    </div>
+    <div id="importList" class="bundle-list"></div>
+    <div class="row end gap"><button type="button" class="ghost" id="importClose">Schließen</button><button type="button" class="primary" id="importGo">Ausgewählte importieren</button></div>
+  </dialog>
+
+  <!-- Befehlspalette -->
+  <dialog id="paletteDialog" class="palette">
+    <input id="paletteInput" class="input" placeholder="Profil starten, Ansicht öffnen, Aktion ausführen…" autocomplete="off" spellcheck="false" />
+    <ul id="paletteList"></ul>
+    <p class="muted palette-hint">↑ ↓ auswählen · Enter ausführen · Esc schließen · Strg+Enter spielt · Strg+1–8 wechselt die Ansicht</p>
+  </dialog>
+
+  <!-- Eingabe -->
+  <dialog id="askDialog">
+    <p id="askLabel"></p>
+    <input id="askInput" class="input" />
+    <div class="row end gap"><button type="button" class="ghost" id="askCancel">Abbrechen</button><button type="button" class="primary" id="askOk">OK</button></div>
+  </dialog>
+
+  <script src="vendor/skinview3d.bundle.js"></script>
+  <script src="app.js"></script>
+  <script src="features.js"></script>
+  <script src="features2.js"></script>
+</body>
+</html>

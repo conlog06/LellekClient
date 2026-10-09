@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8" /><title>Log</title>
+<style>
+  body { margin: 0; background: #0F0B06; color: #C9BEA9; font: 12px/1.45 ui-monospace, Consolas, monospace; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #1F1810; border-bottom: 1px solid #3B2E1C; font-family: "Segoe UI", sans-serif; color: #F5EEE2; }
+  header b { color: #FFB400; }
+  .bar { flex: 1; height: 8px; background: #16110A; border-radius: 4px; overflow: hidden; }
+  .bar div { height: 100%; width: 0; background: #FFB400; transition: width .2s; }
+  pre { margin: 0; padding: 10px 14px; overflow: auto; white-space: pre-wrap; user-select: text; }
+  .err { color: #F07C7C; } .ok { color: #7BD88F; }
+  button { font: inherit; background: #32271A; color: #F5EEE2; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+</style></head>
+<body>
+  <header><b id="title">Log</b><span id="state">Startet…</span><div class="bar"><div id="bar"></div></div><input id="q" placeholder="Suchen…" style="font:inherit;background:#16110A;color:#F5EEE2;border:1px solid #3B2E1C;border-radius:6px;padding:4px 8px" /><label style="font-family:sans-serif;font-size:12px"><input type="checkbox" id="onlyErr" /> nur Fehler</label><button id="clear">Leeren</button></header>
+  <pre id="log"></pre>
+  <script>
+    const q = new URLSearchParams(location.search); document.title = 'Log – ' + q.get('name');
+    document.getElementById('title').textContent = q.get('name') + ' · ' + q.get('version');
+    const log = document.getElementById('log'), bar = document.getElementById('bar'), state = document.getElementById('state');
+    const search = document.getElementById('q'), onlyErr = document.getElementById('onlyErr');
+    const apply = () => { const f = search.value.toLowerCase(); for (const s of log.children) s.style.display = ((!f || s.textContent.toLowerCase().includes(f)) && (!onlyErr.checked || s.classList.contains('err'))) ? '' : 'none'; };
+    search.oninput = apply; onlyErr.onchange = apply;
+    const add = (t, cls) => { const s = document.createElement('span'); if (cls) s.className = cls; s.textContent = t + '\n'; log.appendChild(s); apply(); log.scrollTop = log.scrollHeight; };
+    window.lellek.onLog(({ line }) => add(line, /ERROR|Exception|FEHLER/i.test(line) ? 'err' : ''));
+    window.lellek.onProgress(({ task, percent }) => { bar.style.width = Math.round(percent * 100) + '%'; state.textContent = task + ' ' + Math.round(percent * 100) + ' %'; });
+    window.lellek.onClosed(({ code }) => { state.textContent = code === 0 ? 'Beendet' : 'Beendet mit Code ' + code; add('— Ende —', code === 0 ? 'ok' : 'err'); });
+    document.getElementById('clear').onclick = () => { log.textContent = ''; };
+  </script>
+</body></html>
