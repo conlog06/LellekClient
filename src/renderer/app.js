@@ -772,6 +772,7 @@ $('#settingsForm').onsubmit = async (e) => {
 
 // ---------- Neuigkeiten ----------
 const NEWS = [
+  { date: '2026-10-09', title: 'LellekClient 2.2 – Freundschaftsanfragen', text: 'Freunde müssen deine Anfrage jetzt annehmen – erst dann seht ihr euch gegenseitig. Neu: eigener Status (Online, Abwesend, Bitte nicht stören, Unsichtbar) mit kurzer Notiz, Einladungen an Freunde mit Nachricht und Server, Favoriten, Spitznamen, Blockieren und ein Zähler für offene Anfragen.' },
   { date: '2026-10-09', title: 'LellekClient 2.1.1', text: 'Jedes Minecraft-Konto hat jetzt seine eigene Freundesliste – beim Kontowechsel wechselt die Liste mit. Updates kommen ab jetzt automatisch über GitHub.' },
   { date: '2026-10-09', title: 'LellekClient 2.1 – jetzt auch für Mac', text: 'LellekClient läuft auf macOS – für Apple-Silicon-Macs (M1–M4) und Intel-Macs. Alte Versionen wie 1.8.9 und 1.12.2 starten auf Apple Silicon automatisch mit Intel-Java über Rosetta. ⌘-Tastenkürzel, Menüleisten-Symbol, PC-Check erkennt Apple-Chips.' },
   { date: '2026-10-09', title: 'LellekClient 2.0', text: 'Freundesliste mit Online-Status und Beitreten-Knopf. Streamer-Modus (auch automatisch bei OBS). Neue Design-Seite: 8 Farbschemas, eigener Hintergrund, Größe, kompakter Modus, Skin-Animationen, eigener Titel, Text im Minecraft-Menü, eigenes CSS. Server mit Paper oder Fabric samt Plugins/Mods und playit.gg-Tunnel. Screenshots an Discord, PC-Check, Bilder-Galerie bei Mods und Changelogs bei Updates.' },

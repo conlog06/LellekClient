@@ -135,57 +135,145 @@ $('#designReset').onclick = async () => {
   ui = await api.ui.get(); await api.settings.save({ accent: '#FFB400' }); applyAccent('#FFB400'); applyUi(); renderDesign(); toast('Design zurückgesetzt');
 };
 
-// ---------- Freunde ----------
-let lastFriends = null;
+// ---------- Freunde (Anfragen, Status, Einladungen) ----------
+let lastFriends = null, ftab = 'friends';
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'gerade eben' : m < 60 ? `vor ${m} min` : m < 1440 ? `vor ${Math.round(m / 60)} h` : `vor ${Math.round(m / 1440)} Tagen`; };
+const STATUS_TEXT = { online: 'Online', away: 'Abwesend', dnd: 'Bitte nicht stören', invisible: 'Unsichtbar' };
+const dotClass = (f) => !f.online ? 'off' : f.status === 'dnd' ? 'dnd' : f.status === 'away' ? 'away' : f.state === 'playing' ? 'play' : 'on';
 function friendText(f) {
+  if (f.pending) return 'Wartet auf Bestätigung …';
   if (!f.online) return f.lastSeen ? `Offline · zuletzt ${ago(f.lastSeen)}` : 'Offline';
-  if (f.state !== 'playing') return 'Online im Launcher';
-  return `Spielt ${f.version || ''}${f.loader ? ' ' + (LOADER_NAMES[f.loader] || f.loader) : ''}${f.server ? ' auf ' + f.server : f.world ? ' · Einzelspieler' : ''}${f.since ? ' · seit ' + ago(f.since).replace('vor ', '') : ''}`;
+  const st = f.status && f.status !== 'online' ? STATUS_TEXT[f.status] + ' · ' : '';
+  if (f.state !== 'playing') return st + 'Im Launcher';
+  return `${st}Spielt ${f.version || ''}${f.loader ? ' ' + (LOADER_NAMES[f.loader] || f.loader) : ''}${f.server ? ' auf ' + f.server : f.world ? ' · Einzelspieler' : ''}${f.since ? ' · seit ' + ago(f.since).replace('vor ', '') : ''}`;
 }
+const fname = (f) => f.nick || f.name;
 async function joinFriend(f) {
   const p = currentProfile(); if (!p) { toast('Erst ein Profil wählen', true); return; }
-  if (f.version && p.version !== f.version) { const same = state.profiles.find(x => x.version === f.version); if (same && confirm(`${f.name} spielt ${f.version}. Mit „${same.name}“ beitreten statt mit „${p.name}“ (${p.version})?`)) { launchProfile(same.id, f.server); return; } }
+  if (f.version && p.version !== f.version) { const same = state.profiles.find(x => x.version === f.version); if (same && confirm(`${fname(f)} spielt ${f.version}. Mit „${same.name}“ beitreten statt mit „${p.name}“ (${p.version})?`)) { launchProfile(same.id, f.server); return; } }
   launchProfile(p.id, f.server);
 }
+async function friendAction(fn, okText) { try { const r = await fn(); if (r && r.friends) renderFriends(r); if (okText) toast(okText); } catch (e) { toast(e.message, true); } }
+function headImg(uuid, cls = 'fhead') { const h = el('img', cls); h.alt = ''; setHead(h, uuid); return h; }
 function renderFriends(d) {
-  lastFriends = d || lastFriends; if (!lastFriends) return;
-  const sub = $('.view[data-view="friends"] .view-head p');
-  if (sub) sub.textContent = lastFriends.account ? `Freundesliste von ${lastFriends.account} – jedes Minecraft-Konto hat seine eigene Liste.` : 'Melde dich oben rechts an – jedes Minecraft-Konto hat seine eigene Freundesliste.';
-  const sb = $('#friendsServer');
-  sb.classList.toggle('hidden', lastFriends.reachable);
-  if (!lastFriends.reachable) { sb.innerHTML = ''; sb.append(el('span', '', `Presence-Server nicht erreichbar (${lastFriends.server}) – Online-Status wird nicht angezeigt. Starte ihn mit „node presence-server.js“ und trag die Adresse unter Optionen → Freunde ein.`)); const o = el('button', 'ghost small', 'Optionen'); o.onclick = () => showView('settings'); sb.append(o); }
+  lastFriends = d || lastFriends; const L = lastFriends; if (!L) return;
+  $('#friendsSub').textContent = L.account ? `Freundesliste von ${L.account} – jedes Minecraft-Konto hat seine eigene.` : 'Melde dich oben rechts an – jedes Minecraft-Konto hat seine eigene Freundesliste.';
+  // eigener Status
+  $('#meStatus').classList.toggle('hidden', !L.loggedIn);
+  if (L.loggedIn) {
+    $('#meName').textContent = L.account || '';
+    if (document.activeElement !== $('#meStatusSel')) $('#meStatusSel').value = L.sharePresence ? (L.status || 'online') : 'invisible';
+    if (document.activeElement !== $('#meNote')) $('#meNote').value = L.note || '';
+    $('#meDot').className = 'sdot ' + ({ online: 'on', away: 'away', dnd: 'dnd', invisible: 'off' }[L.sharePresence ? L.status : 'invisible'] || 'on');
+  }
+  // Server-Hinweis
+  const sb = $('#friendsServer'); sb.classList.toggle('hidden', L.reachable || !L.loggedIn);
+  if (!L.reachable && L.loggedIn) { sb.innerHTML = ''; sb.append(el('span', '', `Freunde-Server gerade nicht erreichbar (${L.server}). Er wacht nach einer Pause in bis zu einer Minute auf – danach erscheinen Status und Anfragen.`)); const o = el('button', 'ghost small', 'Erneut versuchen'); o.onclick = () => loadFriends(true); sb.append(o); }
+  // Zähler
+  const online = L.friends.filter(f => f.online).length;
+  $('#cntFriends').textContent = L.friends.length ? `${online}/${L.friends.length}` : '';
+  $('#cntReq').textContent = String(L.incoming.length); $('#cntReq').classList.toggle('hidden', !L.incoming.length);
+  railBadge(L.incoming.length);
+  // Tabs
+  $$('#friendsSeg button').forEach(b => b.classList.toggle('active', b.dataset.ftab === ftab));
+  $('#friendList').classList.toggle('hidden', ftab !== 'friends'); $('#requestList').classList.toggle('hidden', ftab !== 'requests'); $('#blockedList').classList.toggle('hidden', ftab !== 'blocked');
+  $('#friendSearch').classList.toggle('hidden', ftab !== 'friends');
+  if (ftab === 'friends') renderFriendCards(L); else if (ftab === 'requests') renderRequests(L); else renderBlocked(L);
+  renderFriendsMini();
+}
+function renderFriendCards(L) {
   const box = $('#friendList'); box.innerHTML = '';
-  const list = [...lastFriends.friends].sort((a, b) => (b.online - a.online) || ((b.state === 'playing') - (a.state === 'playing')) || a.name.localeCompare(b.name));
-  if (!list.length) box.append(el('p', 'muted', 'Noch keine Freunde. Minecraft-Namen oben eintragen – sie sehen dich, sobald sie auch LellekClient nutzen.'));
+  const q = ($('#friendSearch').value || '').toLowerCase();
+  const rank = (f) => (f.fav ? 0 : 10) + (f.online ? (f.state === 'playing' ? 0 : 1) : 5);
+  const list = L.friends.filter(f => !q || `${f.name} ${f.nick || ''}`.toLowerCase().includes(q)).sort((a, b) => rank(a) - rank(b) || fname(a).localeCompare(fname(b)));
+  if (!L.friends.length) { const e = el('div', 'empty-friends'); e.append(el('b', '', 'Noch keine Freunde'), el('span', '', L.loggedIn ? 'Gib oben einen Minecraft-Namen ein und schick eine Anfrage. Sobald sie angenommen ist, seht ihr euch gegenseitig.' : 'Melde dich oben rechts mit Microsoft an.')); if (L.incoming.length) { const b = el('button', 'primary small', `${L.incoming.length} offene Anfrage(n) ansehen`); b.onclick = () => { ftab = 'requests'; renderFriends(); }; e.append(b); } box.append(e); return; }
+  if (!list.length) box.append(el('p', 'muted', 'Kein Freund passt zur Suche.'));
   for (const f of list) {
-    const c = el('div', 'card friend' + (f.online ? (f.state === 'playing' ? ' playing' : ' online') : ''));
-    const head = el('img', 'fhead'); head.alt = ''; setHead(head, f.uuid);
-    const top = el('div', 'friend-top'); const nm = el('div'); nm.append(el('b', '', f.name), el('span', 'fstatus', friendText(f))); top.append(head, nm);
+    const c = el('div', 'card friend ' + dotClass(f));
+    const top = el('div', 'friend-top'); const nm = el('div', 'fn');
+    const title = el('b'); title.append(document.createTextNode(fname(f))); if (f.fav) title.prepend(el('span', 'star', '★ ')); if (f.nick) title.append(el('small', 'real', ` ${f.name}`));
+    nm.append(title, el('span', 'fstatus', friendText(f))); if (f.online && f.note) nm.append(el('span', 'fnote', `„${f.note}“`));
+    top.append(headImg(f.uuid), nm);
     const act = el('div', 'actions');
     if (f.online && f.server) { const j = el('button', 'primary', 'Beitreten'); j.onclick = () => joinFriend(f); act.append(j); }
-    const rm = el('button', 'ghost danger', 'Entfernen'); rm.onclick = async () => { if (!confirm(`${f.name} aus der Liste entfernen?`)) return; renderFriends(await api.friends.remove(f.uuid)); }; act.append(rm);
-    c.append(top, act); box.append(c);
+    if (f.online && !f.pending) { const i = el('button', 'ghost', 'Einladen'); i.title = L.myServer ? `Auf ${L.myServer} einladen` : 'Nachricht/Einladung schicken'; i.onclick = () => inviteFriend(f); act.append(i); }
+    const fav = el('button', 'ghost icon-btn' + (f.fav ? ' on' : ''), '★'); fav.title = f.fav ? 'Kein Favorit mehr' : 'Als Favorit oben anheften'; fav.onclick = () => friendAction(() => api.friends.edit({ uuid: f.uuid, fav: !f.fav })); act.append(fav);
+    const more = el('button', 'ghost icon-btn', '⋯'); more.title = 'Mehr'; act.append(more);
+    const menu = el('div', 'fmenu hidden');
+    const nick = el('button', 'ghost small', 'Spitzname'); nick.onclick = async () => { const n = await askText(`Spitzname für ${f.name} („-“ entfernt ihn):`, f.nick || ''); if (n === null) return; friendAction(() => api.friends.edit({ uuid: f.uuid, nick: n === '-' ? '' : n }), n === '-' ? 'Spitzname entfernt' : 'Spitzname gespeichert'); };
+    const rm = el('button', 'ghost small danger', 'Entfernen'); rm.onclick = () => { if (confirm(`${fname(f)} als Freund entfernen? Ihr seht euch dann nicht mehr.`)) friendAction(() => api.friends.remove(f.uuid), `${fname(f)} entfernt`); };
+    const bl = el('button', 'ghost small danger', 'Blockieren'); bl.onclick = () => { if (confirm(`${f.name} blockieren? Er wird entfernt und kann dir keine Anfragen mehr schicken.`)) friendAction(() => api.friends.block({ uuid: f.uuid, name: f.name }), `${f.name} blockiert`); };
+    menu.append(nick, rm, bl); more.onclick = () => menu.classList.toggle('hidden');
+    c.append(top, act, menu); box.append(c);
   }
-  renderFriendsMini();
+}
+function reqRow(x, sub, buttons) { const r = el('div', 'req-row'); const t = el('div'); t.append(el('b', '', x.name), el('span', 'muted', sub)); r.append(headImg(x.uuid, 'rhead'), t, ...buttons); return r; }
+function renderRequests(L) {
+  const box = $('#requestList'); box.innerHTML = '';
+  box.append(el('h3', '', `Eingehend (${L.incoming.length})`));
+  if (!L.incoming.length) box.append(el('p', 'muted', 'Keine offenen Anfragen.'));
+  for (const x of L.incoming) {
+    const yes = el('button', 'primary', 'Annehmen'); yes.onclick = () => friendAction(() => api.friends.respond({ uuid: x.uuid, accept: true }), `Du bist jetzt mit ${x.name} befreundet`);
+    const no = el('button', 'ghost', 'Ablehnen'); no.onclick = () => friendAction(() => api.friends.respond({ uuid: x.uuid, accept: false }), 'Anfrage abgelehnt');
+    const bl = el('button', 'ghost danger', 'Blockieren'); bl.onclick = () => friendAction(() => api.friends.block({ uuid: x.uuid, name: x.name }), `${x.name} blockiert`);
+    box.append(reqRow(x, `möchte mit dir befreundet sein · ${ago(x.at)}`, [yes, no, bl]));
+  }
+  box.append(el('h3', '', `Gesendet (${L.outgoing.length})`));
+  if (!L.outgoing.length) box.append(el('p', 'muted', 'Keine gesendeten Anfragen. Der andere sieht deine Anfrage, sobald er LellekClient öffnet.'));
+  for (const x of L.outgoing) { const c = el('button', 'ghost', 'Zurückziehen'); c.onclick = () => friendAction(() => api.friends.cancel(x.uuid), 'Anfrage zurückgezogen'); box.append(reqRow(x, `Anfrage gesendet ${ago(x.at)} – wartet auf Antwort`, [c])); }
+}
+function renderBlocked(L) {
+  const box = $('#blockedList'); box.innerHTML = '';
+  if (!L.blocked.length) { box.append(el('p', 'muted', 'Niemand blockiert. Blockierte Spieler können dir keine Anfragen schicken und sehen deinen Status nicht.')); return; }
+  for (const x of L.blocked) { const u = el('button', 'ghost', 'Entsperren'); u.onclick = () => friendAction(() => api.friends.unblock(x.uuid), `${x.name} entsperrt`); box.append(reqRow(x, `blockiert ${ago(x.at || Date.now())}`, [u])); }
+}
+function railBadge(n) {
+  const btn = $('.rail-btn[data-view="friends"]'); if (!btn) return;
+  let b = btn.querySelector('.rail-badge'); if (!b) { b = el('i', 'rail-badge'); btn.append(b); }
+  b.textContent = n > 9 ? '9+' : String(n); b.classList.toggle('hidden', !n);
+}
+async function inviteFriend(f) {
+  const where = lastFriends?.myServer;
+  const msg = await askText(where ? `${fname(f)} auf ${where} einladen – Nachricht (optional):` : `Nachricht an ${fname(f)} (z. B. „Lust auf eine Runde?“):`, where ? 'Komm rüber!' : 'Lust auf eine Runde?');
+  if (msg === null) return;
+  try { await api.friends.invite({ uuid: f.uuid, message: msg }); toast(`Einladung an ${fname(f)} geschickt`); } catch (e) { toast(e.message, true); }
 }
 function renderFriendsMini() {
   const on = (lastFriends?.friends || []).filter(f => f.online);
-  $('#friendsMini').classList.toggle('hidden', !on.length);
+  $('#friendsMini').classList.toggle('hidden', !on.length && !(lastFriends?.incoming || []).length);
   const box = $('#friendsMiniList'); box.innerHTML = '';
-  for (const f of on.slice(0, 6)) {
-    const r = el('div', 'fmini' + (f.state === 'playing' ? ' playing' : '')); const h = el('img'); h.alt = ''; setHead(h, f.uuid);
-    const t = el('div'); t.append(el('b', '', f.name), el('span', '', f.state === 'playing' ? (f.server || (f.world ? 'Einzelspieler' : f.version)) : 'im Launcher'));
-    r.append(h, t); if (f.server) { r.title = 'Klicken zum Beitreten'; r.onclick = () => joinFriend(f); } box.append(r);
+  if (lastFriends?.incoming?.length) { const r = el('div', 'fmini req'); r.append(el('b', '', `${lastFriends.incoming.length} Freundschaftsanfrage(n)`), el('span', '', 'ansehen →')); r.title = 'Anfragen öffnen'; r.onclick = () => { ftab = 'requests'; showView('friends'); }; box.append(r); }
+  for (const f of on.sort((a, b) => (b.state === 'playing') - (a.state === 'playing')).slice(0, 6)) {
+    const r = el('div', 'fmini ' + dotClass(f)); const t = el('div'); t.append(el('b', '', fname(f)), el('span', '', f.state === 'playing' ? (f.server || (f.world ? 'Einzelspieler' : f.version)) : (f.note || STATUS_TEXT[f.status] || 'im Launcher')));
+    r.append(headImg(f.uuid, ''), t); if (f.server) { r.title = 'Klicken zum Beitreten'; r.onclick = () => joinFriend(f); } box.append(r);
   }
 }
-async function loadFriends() { try { renderFriends(await api.friends.list()); } catch (e) { toast(e.message, true); } }
+async function loadFriends(force) { try { renderFriends(await api.friends.list()); } catch (e) { if (force) toast(e.message, true); } }
 api.friends.onUpdate((d) => { renderFriends(d); });
 // Kontowechsel → Freundesliste des neuen Kontos laden
-api.auth.onChange(() => { lastFriends = null; $('#friendList').innerHTML = ''; renderFriendsMini(); setTimeout(loadFriends, 300); lastPresencePush = 0; });
-let lastPresencePush = 0;
-$('#friendAdd').onclick = async () => { const n = $('#friendName').value.trim(); if (!n) return; const b = $('#friendAdd'); b.disabled = true; try { renderFriends(await api.friends.add(n)); $('#friendName').value = ''; toast(`${n} hinzugefügt`); } catch (e) { toast(e.message, true); } b.disabled = false; };
+api.auth.onChange(() => { lastFriends = null; $('#friendList').innerHTML = ''; railBadge(0); setTimeout(loadFriends, 300); });
+// Einladungen als Banner
+api.friends.onInvite((inv) => {
+  let box = $('#inviteToasts'); if (!box) { box = el('div', 'invite-toasts'); box.id = 'inviteToasts'; document.body.append(box); }
+  const t = el('div', 'invite-toast'); const h = headImg(inv.from, 'ihead');
+  const body = el('div'); body.append(el('b', '', `${inv.name} lädt dich ein`), el('span', '', [inv.server ? `auf ${inv.server}${inv.version ? ' (' + inv.version + ')' : ''}` : '', inv.message ? `„${inv.message}“` : ''].filter(Boolean).join(' · ') || 'Lust auf eine Runde?'));
+  const acts = el('div', 'row gap');
+  if (inv.server) { const j = el('button', 'primary small', 'Beitreten'); j.onclick = () => { t.remove(); joinFriend({ name: inv.name, server: inv.server, version: inv.version }); }; acts.append(j); }
+  const x = el('button', 'ghost small', 'Schließen'); x.onclick = () => t.remove(); acts.append(x);
+  body.append(acts); t.append(h, body); box.append(t); setTimeout(() => t.remove(), 120000);
+});
+$('#friendAdd').onclick = async () => {
+  const n = $('#friendName').value.trim(); if (!n) return; const b = $('#friendAdd'); b.disabled = true;
+  try { const r = await api.friends.add(n); renderFriends(r); $('#friendName').value = ''; toast(r.result === 'friends' ? `${r.name} hatte dich schon angefragt – ihr seid jetzt Freunde` : `Anfrage an ${r.name} gesendet – sobald sie angenommen ist, seht ihr euch`); if (r.result === 'sent') { ftab = 'requests'; renderFriends(); } }
+  catch (e) { toast(e.message, true); }
+  b.disabled = false;
+};
 $('#friendName').onkeydown = (e) => { if (e.key === 'Enter') $('#friendAdd').click(); };
+$$('#friendsSeg button').forEach(b => b.onclick = () => { ftab = b.dataset.ftab; renderFriends(); });
+$('#friendSearch').oninput = () => renderFriends();
+$('#meStatusSel').onchange = (e) => friendAction(async () => { const v = e.target.value; if (v !== 'invisible' && lastFriends && !lastFriends.sharePresence) await api.settings.save({ sharePresence: true }); return api.friends.setStatus({ status: v }); }, `Status: ${STATUS_TEXT[$('#meStatusSel').value]}`);
+$('#meNoteSave').onclick = () => friendAction(() => api.friends.setStatus({ note: $('#meNote').value }), 'Statusnachricht gespeichert');
+$('#meNote').onkeydown = (e) => { if (e.key === 'Enter') $('#meNoteSave').click(); };
 
 // ---------- Server: Typ, Tunnel, öffentliche Adresse, Plugins ----------
 {

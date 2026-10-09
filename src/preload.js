@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('lellek', {
   pc: { check: invoke('pc:check'), setMemory: invoke('profiles:setMemory') },
   shotDiscord: invoke('shots:discord'),
   details: invoke('browse:details'), changelog: invoke('mods:changelog'),
-  friends: { list: invoke('friends:list'), add: invoke('friends:add'), remove: invoke('friends:remove'), status: invoke('friends:status'), onUpdate: on('friends:update') },
+  friends: { list: invoke('friends:list'), add: invoke('friends:add'), remove: invoke('friends:remove'), status: invoke('friends:status'), respond: invoke('friends:respond'), cancel: invoke('friends:cancel'), block: invoke('friends:block'), unblock: invoke('friends:unblock'), setStatus: invoke('friends:setStatus'), edit: invoke('friends:edit'), invite: invoke('friends:invite'), onUpdate: on('friends:update'), onInvite: on('friends:invite') },
   serverContent: { list: invoke('servercontent:list'), search: invoke('servercontent:search'), install: invoke('servercontent:install'), remove: invoke('servercontent:remove'), toggle: invoke('servercontent:toggle'), openFolder: invoke('servercontent:openFolder') },
   tunnel: { start: invoke('tunnel:start'), stop: invoke('tunnel:stop'), onState: on('tunnel:state') },
   setServerAddress: invoke('server:setAddress'),

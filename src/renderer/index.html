@@ -244,11 +244,23 @@
     <!-- Freunde -->
     <section class="view" data-view="friends">
       <div class="view-head">
-        <div><h2>Freunde</h2><p class="muted">Sieh, wer gerade spielt und auf welchem Server – und tritt mit einem Klick bei.</p></div>
-        <div class="row gap"><input id="friendName" class="input" placeholder="Minecraft-Name" maxlength="16" style="width:200px" /><button class="primary" id="friendAdd">Hinzufügen</button></div>
+        <div><h2>Freunde</h2><p class="muted" id="friendsSub">Jedes Minecraft-Konto hat seine eigene Freundesliste.</p></div>
+        <div class="row gap"><input id="friendName" class="input" placeholder="Minecraft-Name" maxlength="16" style="width:200px" /><button class="primary" id="friendAdd">Anfrage senden</button></div>
+      </div>
+      <div class="card me-status hidden" id="meStatus">
+        <span class="sdot" id="meDot"></span><b id="meName"></b>
+        <select id="meStatusSel" class="select"><option value="online">Online</option><option value="away">Abwesend</option><option value="dnd">Bitte nicht stören</option><option value="invisible">Unsichtbar</option></select>
+        <input id="meNote" class="input grow" maxlength="80" placeholder="Statusnachricht, z. B. „Suche Leute für Bedwars“" />
+        <button class="ghost" id="meNoteSave">Speichern</button>
       </div>
       <div id="friendsServer" class="banner hidden"></div>
+      <div class="row gap friends-bar">
+        <div class="seg" id="friendsSeg"><button data-ftab="friends" class="active">Freunde <span class="cnt" id="cntFriends"></span></button><button data-ftab="requests">Anfragen <span class="badge-n hidden" id="cntReq"></span></button><button data-ftab="blocked">Blockiert</button></div>
+        <span class="grow"></span><input id="friendSearch" class="input" placeholder="Freunde suchen…" style="width:200px" />
+      </div>
       <div id="friendList" class="cards friend-cards"></div>
+      <div id="requestList" class="req-list hidden"></div>
+      <div id="blockedList" class="req-list hidden"></div>
     </section>
 
     <!-- Design -->

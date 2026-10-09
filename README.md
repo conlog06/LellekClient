@@ -43,6 +43,7 @@ npm run dist:portable :: eine einzelne portable .exe → dist\
 
 ## Neu in 2.1.1
 
+- 2.2: Freundschaftsanfragen (gegenseitig), Status + Notiz, Einladungen, Favoriten, Spitznamen, Blockieren
 - Jedes Minecraft-Konto hat seine eigene Freundesliste (alte Liste wird dem aktuellen Konto zugeordnet)
 - Update-Quelle fest eingebaut: GitHub Releases von conlog06/LellekClient
 

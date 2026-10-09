@@ -1953,9 +1953,11 @@ ipcMain.handle('mods:changelog', async (_e, { source, cfModId, cfFileId, changel
   return html.replace(/<br\s*\/?>|<\/p>|<\/li>|<\/h\d>/gi, '\n').replace(/<li[^>]*>/gi, '• ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000);
 });
 
-// ---------- Freunde & Online-Status (LellekPresence-Server) ----------
+// ---------- Freunde (LellekPresence 2): Anfragen, Status, Einladungen ----------
+// Freundschaft ist gegenseitig: Anfrage schicken → der andere nimmt an. Jede Liste gehört zum jeweiligen
+// Minecraft-Konto. Die Listen liegen lokal und werden bei jeder Meldung an den Server übertragen.
 const DEFAULT_PRESENCE = 'https://render-friends-lellek-client-v1.onrender.com';
-// Freundeslisten gehören zum jeweiligen Minecraft-Konto (beim Kontowechsel wechselt die Liste mit)
+const dashUuid = (id) => String(id).toLowerCase().replace(/-/g, '').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 function myAccountId() { return currentAuth?.profile?.id || store.currentAccount || null; }
 function myFriends() {
   store.friendsByAccount ??= {};
@@ -1968,74 +1970,180 @@ function myFriends() {
   return store.friendsByAccount[id] ||= [];
 }
 function setMyFriends(list) { const id = myAccountId(); if (!id) throw new Error('Bitte zuerst mit deinem Microsoft-Konto anmelden'); store.friendsByAccount ??= {}; store.friendsByAccount[id] = list; saveStore(); }
+function social() {
+  store.socialByAccount ??= {};
+  const id = myAccountId(); if (!id) return { outgoing: [], blocked: [], status: 'online', note: '' };
+  const s = store.socialByAccount[id] ||= {}; s.outgoing ??= []; s.blocked ??= []; s.status ??= 'online'; s.note ??= '';
+  return s;
+}
 function presenceBase() { return (store.settings.presenceServer || DEFAULT_PRESENCE).trim().replace(/\/(v1\/stats)?\/?$/, '').replace(/\/$/, ''); }
-let presenceToken = null, presenceTokenFor = null, friendState = {}, presenceOnline = false;
+let presenceToken = null, presenceTokenFor = null, friendState = {}, presenceOnline = false, incomingReqs = [], lastPoll = 0;
+const seenIncoming = new Set(), seenInvites = new Set();
 async function presenceLogin() {
   if (!currentAuth) throw new Error('Nicht eingeloggt');
   const serverId = crypto.randomBytes(20).toString('hex');
   const j = await fetch('https://sessionserver.mojang.com/session/minecraft/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: currentAuth.mclc.access_token, selectedProfile: currentAuth.profile.id.replace(/-/g, ''), serverId }) });
   if (j.status !== 204 && !j.ok) throw new Error(`Mojang-Login fehlgeschlagen (${j.status})`);
-  const r = await fetch(presenceBase() + '/v1/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: currentAuth.profile.name, serverId }), signal: withTimeout(10000) });
-  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Presence-Server ${r.status}`);
+  const r = await fetch(presenceBase() + '/v1/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: currentAuth.profile.name, serverId }), signal: withTimeout(15000) });
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Freunde-Server ${r.status}`);
   presenceToken = d.token; presenceTokenFor = currentAuth.profile.id;
 }
+/** Aufruf mit Anmeldung; bei abgelaufenem Token einmal neu anmelden */
+async function presenceCall(method, path, payload) {
+  if (!currentAuth) throw new Error('Bitte zuerst mit deinem Microsoft-Konto anmelden');
+  if (presenceToken && presenceTokenFor !== currentAuth.profile.id) { const old = presenceToken; presenceToken = null; fetch(presenceBase() + '/v1/presence/me', { method: 'DELETE', headers: { Authorization: `Bearer ${old}` } }).catch(() => {}); }
+  if (!presenceToken) await presenceLogin();
+  const go = () => fetch(presenceBase() + path, { method, headers: { Authorization: `Bearer ${presenceToken}`, ...(payload ? { 'Content-Type': 'application/json' } : {}) }, body: payload ? JSON.stringify(payload) : undefined, signal: withTimeout(15000) });
+  let r = await go();
+  if (r.status === 401) { await presenceLogin(); r = await go(); }
+  return r;
+}
 function myPresence() {
-  const ids = [...running.keys()];
-  if (!ids.length) return { state: 'launcher' };
+  const s = social(), ids = [...running.keys()];
+  // Freunde, die uns (noch) nicht haben (z. B. aus 2.1 übernommen), gehen zusätzlich als Anfrage raus
+  const fr = myFriends().map(f => f.uuid), out = new Set(s.outgoing.map(f => f.uuid));
+  for (const id of fr) if (friendState[id]?.pending) out.add(id);
+  const lists = { friends: fr, outgoing: [...out], blocked: s.blocked.map(f => f.uuid),
+    status: store.settings.sharePresence === false ? 'invisible' : s.status, note: streamerActive() ? '' : s.note };
+  if (!ids.length) return { state: 'launcher', ...lists };
   const p = store.profiles.find(x => x.id === ids[0]) || {}; const ctx = gameContext.get(ids[0]) || {};
   const hide = streamerActive();
-  return { state: 'playing', version: p.version, loader: p.loader || '', server: hide ? null : (ctx.server || null), world: hide ? null : (ctx.world ? 'Einzelspieler' : null), since: ctx.since || Date.now() };
+  return { state: 'playing', version: p.version, loader: p.loader || '', server: hide ? null : (ctx.server || null), world: hide ? null : (ctx.world ? 'Einzelspieler' : null), since: ctx.since || Date.now(), ...lists };
 }
-let lastPresenceSent = 0;
-async function publishPresence() {
-  if (!currentAuth || store.settings.sharePresence === false) return;
-  if (Date.now() - lastPresenceSent < 3000) return; lastPresenceSent = Date.now();
+let lastPresenceSent = 0, publishing = null;
+async function publishPresence(force) {
+  if (!currentAuth) return;
+  if (!force && Date.now() - lastPresenceSent < 3000) return publishing; lastPresenceSent = Date.now();
+  publishing = (async () => { try { const r = await presenceCall('PUT', '/v1/presence/me', myPresence()); presenceOnline = r.ok; } catch { presenceOnline = false; } })();
+  return publishing;
+}
+const notifyFriends = (text) => { if (store.settings.friendNotify !== false) notify('LellekClient', text); };
+async function pollFriends(again) {
+  if (!currentAuth) { send('friends:update', friendList()); return; }
+  lastPoll = Date.now();
   try {
-    if (presenceToken && presenceTokenFor !== currentAuth.profile.id) { const old = presenceToken; presenceToken = null; fetch(presenceBase() + '/v1/presence/me', { method: 'DELETE', headers: { Authorization: `Bearer ${old}` } }).catch(() => {}); }
-    if (!presenceToken || presenceTokenFor !== currentAuth.profile.id) await presenceLogin();
-    const body = JSON.stringify(myPresence());
-    let r = await fetch(presenceBase() + '/v1/presence/me', { method: 'PUT', headers: { Authorization: `Bearer ${presenceToken}`, 'Content-Type': 'application/json' }, body, signal: withTimeout(8000) });
-    if (r.status === 401) { await presenceLogin(); r = await fetch(presenceBase() + '/v1/presence/me', { method: 'PUT', headers: { Authorization: `Bearer ${presenceToken}`, 'Content-Type': 'application/json' }, body, signal: withTimeout(8000) }); }
-    presenceOnline = r.ok;
-  } catch { presenceOnline = false; }
-}
-async function fetchFriendStates() {
-  const list = myFriends(); if (!list.length) return {};
-  try {
-    const r = await fetch(`${presenceBase()}/v1/presence?uuids=${list.map(f => f.uuid).join(',')}`, { signal: withTimeout(8000) });
-    if (!r.ok) throw new Error(); presenceOnline = true; return await r.json();
-  } catch { presenceOnline = false; return null; }
-}
-async function pollFriends() {
-  const states = await fetchFriendStates();
-  if (states) {
-    for (const f of myFriends()) {
-      const was = friendState[f.uuid]?.online, now = states[f.uuid]?.online;
-      if (now && was === false && store.settings.friendNotify !== false) notify('LellekClient', `${f.name} ist jetzt online${states[f.uuid].server ? ' auf ' + states[f.uuid].server : ''}`);
+    let r = await presenceCall('GET', '/v1/friends');
+    if (r.status === 409) { await publishPresence(true); r = await presenceCall('GET', '/v1/friends'); }
+    if (!r.ok) throw new Error(String(r.status));
+    const d = await r.json(); presenceOnline = true;
+    const s = social(); let friends = myFriends(), changed = false;
+    // Entfernt worden
+    for (const x of d.removed || []) { if (friends.some(f => f.uuid === x.uuid)) { friends = friends.filter(f => f.uuid !== x.uuid); changed = true; } }
+    // Angenommen
+    for (const x of d.accepted || []) {
+      if (!friends.some(f => f.uuid === x.uuid)) { friends.push({ uuid: x.uuid, name: x.name || s.outgoing.find(o => o.uuid === x.uuid)?.name || '?', added: Date.now() }); notifyFriends(`${x.name} hat deine Freundschaftsanfrage angenommen`); }
+      s.outgoing = s.outgoing.filter(o => o.uuid !== x.uuid); changed = true;
     }
-    friendState = states;
-  }
+    // Abgelehnt
+    for (const x of d.declined || []) { if (s.outgoing.some(o => o.uuid === x.uuid)) { s.outgoing = s.outgoing.filter(o => o.uuid !== x.uuid); changed = true; } }
+    // Eingehend: wer schon in der Liste oder selbst angefragt ist → automatisch annehmen
+    incomingReqs = [];
+    for (const x of d.incoming || []) {
+      if (friends.some(f => f.uuid === x.uuid) || s.outgoing.some(o => o.uuid === x.uuid)) {
+        presenceCall('POST', '/v1/friends/respond', { uuid: x.uuid, accept: true }).catch(() => {});
+        if (!friends.some(f => f.uuid === x.uuid)) friends.push({ uuid: x.uuid, name: x.name, added: Date.now() });
+        s.outgoing = s.outgoing.filter(o => o.uuid !== x.uuid); changed = true; continue;
+      }
+      incomingReqs.push(x);
+      if (!seenIncoming.has(x.uuid)) { seenIncoming.add(x.uuid); notifyFriends(`Freundschaftsanfrage von ${x.name}`); }
+    }
+    // Online-Benachrichtigung
+    for (const f of friends) {
+      const was = friendState[f.uuid]?.online, now = d.friends?.[f.uuid]?.online;
+      if (now && was === false) notifyFriends(`${f.name} ist jetzt online${d.friends[f.uuid].server ? ' auf ' + d.friends[f.uuid].server : ''}`);
+      if (d.friends?.[f.uuid]?.name && d.friends[f.uuid].name !== f.name) { f.name = d.friends[f.uuid].name; changed = true; }
+    }
+    // Einladungen
+    for (const inv of d.invites || []) {
+      const key = inv.from + inv.at; if (seenInvites.has(key)) continue; seenInvites.add(key);
+      const f = myFriends().find(x => x.uuid === inv.from); const who = f?.nick || inv.name;
+      notifyFriends(`${who} lädt dich ein${inv.server ? ' auf ' + inv.server : ''}${inv.message ? ': „' + inv.message + '“' : ''}`);
+      send('friends:invite', { ...inv, name: who });
+    }
+    const pk = (st) => Object.keys(st).filter(k => st[k]?.pending).sort().join();
+    if (pk(friendState) !== pk(d.friends || {})) changed = true;
+    friendState = d.friends || {};
+    if (changed) { setMyFriends(friends); saveStore(); await publishPresence(true); if (!again) return pollFriends(true); }
+  } catch { presenceOnline = false; }
   send('friends:update', friendList());
 }
-function friendList() { return { server: presenceBase(), reachable: presenceOnline, account: currentAuth?.profile?.name || null, friends: myFriends().map(f => ({ ...f, ...(friendState[f.uuid] || { online: false }) })) }; }
-app.whenReady().then(() => { setTimeout(() => { publishPresence(); pollFriends(); }, 6000); setInterval(() => { publishPresence(); pollFriends(); }, 60000); });
+function friendList() {
+  const s = social(), ids = [...running.keys()], ctx = ids.length ? gameContext.get(ids[0]) || {} : {};
+  return { server: presenceBase(), reachable: presenceOnline, account: currentAuth?.profile?.name || null, loggedIn: !!currentAuth,
+    status: s.status, note: s.note, sharePresence: store.settings.sharePresence !== false, myServer: ctx.server || null,
+    friends: myFriends().map(f => ({ ...f, ...(friendState[f.uuid] || { online: false }), name: f.name })),
+    incoming: incomingReqs, outgoing: s.outgoing, blocked: s.blocked };
+}
+app.whenReady().then(() => { setTimeout(async () => { await publishPresence(true); pollFriends(); }, 6000); setInterval(async () => { await publishPresence(true); pollFriends(); }, 45000); });
 // Bei Start/Ende/Serverwechsel sofort melden
 { const _up = updatePresence; updatePresence = function () { _up(); publishPresence(); }; }
-ipcMain.handle('friends:list', async () => { await pollFriends(); return friendList(); });
-ipcMain.handle('friends:add', async (_e, name) => {
+async function lookupPlayer(name) {
   const n = String(name || '').trim(); if (!/^\w{2,16}$/.test(n)) throw new Error('Ungültiger Minecraft-Name');
   const r = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(n)}`, { signal: withTimeout(10000) });
   if (r.status === 404 || r.status === 204) throw new Error(`Spieler „${n}“ gibt es nicht`);
   if (!r.ok) throw new Error(`Mojang-Fehler ${r.status}`);
-  const j = await r.json(); const uuid = j.id.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
-  if (!myAccountId()) throw new Error('Bitte zuerst mit deinem Microsoft-Konto anmelden');
-  if (currentAuth && uuid.replace(/-/g, '') === currentAuth.profile.id.replace(/-/g, '')) throw new Error('Das bist du selbst');
-  const list = myFriends(); if (list.some(f => f.uuid === uuid)) throw new Error(`${j.name} ist schon in deiner Liste`);
-  list.push({ uuid, name: j.name, added: Date.now() }); setMyFriends(list);
-  await pollFriends(); return friendList();
+  const j = await r.json(); return { uuid: dashUuid(j.id), name: j.name };
+}
+const after = async () => { await publishPresence(true); await pollFriends(); return friendList(); };
+ipcMain.handle('friends:list', async () => { if (Date.now() - lastPoll > 4000) await pollFriends(); return friendList(); });
+ipcMain.handle('friends:add', async (_e, name) => {
+  if (!myAccountId() || !currentAuth) throw new Error('Bitte zuerst mit deinem Microsoft-Konto anmelden');
+  const p = await lookupPlayer(name);
+  if (p.uuid === dashUuid(currentAuth.profile.id)) throw new Error('Das bist du selbst');
+  const s = social();
+  if (myFriends().some(f => f.uuid === p.uuid)) throw new Error(`${p.name} ist schon dein Freund`);
+  if (s.outgoing.some(o => o.uuid === p.uuid)) throw new Error(`Anfrage an ${p.name} ist schon unterwegs`);
+  s.blocked = s.blocked.filter(b => b.uuid !== p.uuid);
+  if (incomingReqs.some(x => x.uuid === p.uuid)) { // hat uns schon angefragt → direkt Freunde
+    await presenceCall('POST', '/v1/friends/respond', { uuid: p.uuid, accept: true });
+    setMyFriends([...myFriends(), { uuid: p.uuid, name: p.name, added: Date.now() }]);
+    return { ...(await after()), result: 'friends', name: p.name };
+  }
+  s.outgoing.push({ uuid: p.uuid, name: p.name, at: Date.now() }); saveStore();
+  return { ...(await after()), result: 'sent', name: p.name };
 });
-ipcMain.handle('friends:remove', (_e, uuid) => { setMyFriends(myFriends().filter(f => f.uuid !== uuid)); return friendList(); });
-ipcMain.handle('friends:status', async () => { try { const r = await fetch(presenceBase() + '/v1/stats', { signal: withTimeout(5000) }); const j = await r.json(); return { online: r.ok, ...j, server: presenceBase() }; } catch { return { online: false, server: presenceBase() }; } });
+ipcMain.handle('friends:respond', async (_e, { uuid, accept }) => {
+  const x = incomingReqs.find(r => r.uuid === uuid);
+  await presenceCall('POST', '/v1/friends/respond', { uuid, accept: !!accept });
+  if (accept && !myFriends().some(f => f.uuid === uuid)) setMyFriends([...myFriends(), { uuid, name: x?.name || '?', added: Date.now() }]);
+  incomingReqs = incomingReqs.filter(r => r.uuid !== uuid);
+  return after();
+});
+ipcMain.handle('friends:cancel', async (_e, uuid) => { const s = social(); s.outgoing = s.outgoing.filter(o => o.uuid !== uuid); saveStore(); return after(); });
+ipcMain.handle('friends:remove', async (_e, uuid) => {
+  setMyFriends(myFriends().filter(f => f.uuid !== uuid));
+  try { await presenceCall('POST', '/v1/friends/remove', { uuid }); } catch {}
+  return after();
+});
+ipcMain.handle('friends:block', async (_e, { uuid, name }) => {
+  const s = social();
+  if (!s.blocked.some(b => b.uuid === uuid)) s.blocked.push({ uuid, name: name || '?', at: Date.now() });
+  s.outgoing = s.outgoing.filter(o => o.uuid !== uuid);
+  if (myFriends().some(f => f.uuid === uuid)) { setMyFriends(myFriends().filter(f => f.uuid !== uuid)); try { await presenceCall('POST', '/v1/friends/remove', { uuid }); } catch {} }
+  if (incomingReqs.some(r => r.uuid === uuid)) { try { await presenceCall('POST', '/v1/friends/respond', { uuid, accept: false }); } catch {} }
+  incomingReqs = incomingReqs.filter(r => r.uuid !== uuid); saveStore();
+  return after();
+});
+ipcMain.handle('friends:unblock', async (_e, uuid) => { const s = social(); s.blocked = s.blocked.filter(b => b.uuid !== uuid); saveStore(); return after(); });
+ipcMain.handle('friends:setStatus', async (_e, { status, note }) => {
+  const s = social();
+  if (['online', 'away', 'dnd', 'invisible'].includes(status)) s.status = status;
+  if (typeof note === 'string') s.note = note.trim().slice(0, 80);
+  saveStore(); await publishPresence(true); return friendList();
+});
+ipcMain.handle('friends:edit', (_e, { uuid, nick, fav }) => {
+  const list = myFriends(); const f = list.find(x => x.uuid === uuid); if (!f) throw new Error('Nicht in deiner Liste');
+  if (nick !== undefined) f.nick = String(nick || '').trim().slice(0, 24) || undefined;
+  if (fav !== undefined) f.fav = !!fav;
+  setMyFriends(list); return friendList();
+});
+ipcMain.handle('friends:invite', async (_e, { uuid, message }) => {
+  const ids = [...running.keys()], ctx = ids.length ? gameContext.get(ids[0]) || {} : {}, p = ids.length ? store.profiles.find(x => x.id === ids[0]) : null;
+  const r = await presenceCall('POST', '/v1/friends/invite', { uuid, message: String(message || '').slice(0, 120), server: streamerActive() ? null : (ctx.server || null), version: p?.version || null });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `Einladung fehlgeschlagen (${r.status})`); }
+  return true;
+});
+ipcMain.handle('friends:status', async () => { try { const r = await fetch(presenceBase() + '/v1/stats', { signal: withTimeout(8000) }); const j = await r.json(); return { ...j, online: r.ok, server: presenceBase() }; } catch { return { online: false, server: presenceBase() }; } });
 app.on('before-quit', () => { if (presenceToken) fetch(presenceBase() + '/v1/presence/me', { method: 'DELETE', headers: { Authorization: `Bearer ${presenceToken}` } }).catch(() => {}); });
 
 // ---------- Server: Vanilla / Paper / Fabric ----------
