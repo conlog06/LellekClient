@@ -1,18 +1,36 @@
 # Baut LellekClient für Windows und macOS und veröffentlicht ein GitHub-Release.
-# Auslösen: Tag pushen (z. B. git tag v2.1.2 && git push origin v2.1.2) oder unter Actions → Release → „Run workflow“.
-# Die Version kommt aus package.json – Tag und package.json sollten übereinstimmen.
+# Auslösen: Version in package.json erhöhen und auf main pushen – gibt es für diese Version
+# noch kein Release, wird gebaut und veröffentlicht. Alternativ: Actions → Release → „Run workflow“.
 name: Release
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['package.json']
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      exists: ${{ steps.v.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+
   windows:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +50,8 @@ jobs:
           path: out/*
 
   mac:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: macos-latest
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -59,7 +79,7 @@ jobs:
           path: out/*
 
   release:
-    needs: [windows, mac]
+    needs: [check, windows, mac]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,13 +89,11 @@ jobs:
           merge-multiple: true
       - name: Prüfsummen
         run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
-      - name: Version lesen
-        id: v
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.v.outputs.version }}
-          name: LellekClient ${{ steps.v.outputs.version }}
+          tag_name: v${{ needs.check.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: LellekClient ${{ needs.check.outputs.version }}
           body_path: RELEASE_NOTES.md
           make_latest: 'true'
           files: out/*
