@@ -359,7 +359,7 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
       <div class="head center"><span class="kicker">FAQ</span><h2>Häufige Fragen</h2></div>
       <div class="faq">
         <details><summary>Ist LellekClient kostenlos?</summary><p>Ja. Du brauchst nur ein Microsoft-Konto mit Minecraft Java Edition. Die Anmeldung läuft im offiziellen Microsoft-Fenster – dein Passwort sieht der Launcher nie.</p></details>
-        <details><summary>Läuft LellekClient auf dem Mac?</summary><p>Ja, auf Apple-Silicon-Macs (M1–M4) und Intel-Macs. Die App ist nicht von Apple notarisiert: beim ersten Start Rechtsklick auf die App → „Öffnen“. Meldet macOS „beschädigt“, hilft im Terminal einmal <code>xattr -cr /Applications/LellekClient.app</code>.</p></details>
+        <details><summary>Läuft LellekClient auf dem Mac?</summary><p>Ja, auf Apple-Silicon-Macs (M1–M4) und Intel-Macs. DMG öffnen, LellekClient auf „Programme“ ziehen. Die App ist nicht von Apple notarisiert: beim ersten Start Rechtsklick auf die App → „Öffnen“. Meldet macOS „beschädigt“, hilft im Terminal einmal <code>xattr -cr /Applications/LellekClient.app</code>.</p></details>
         <details><summary>Ist LellekHUD auf Servern erlaubt?</summary><p>LellekHUD zeigt Informationen an und enthält keine Cheats. Ob HUD-Mods erlaubt sind, regelt jeder Server selbst – im Zweifel die Server-Regeln lesen.</p></details>
         <details><summary>Kann ich meine Mods und Welten mitnehmen?</summary><p>Ja. Unter Profile → „Aus anderem Launcher“ übernimmst du Mods, Welten, Einstellungen und Serverlisten aus dem offiziellen Launcher, Prism, MultiMC, CurseForge, Modrinth-App, ATLauncher, Lunar, Feather und NoRisk.</p></details>
         <details><summary>Wie funktioniert die Freundesliste?</summary><p>Beide nutzen LellekClient und tragen sich mit dem Minecraft-Namen ein. Jedes Minecraft-Konto hat seine eigene Liste – wechselst du das Konto, wechselt auch die Liste. Den Status kannst du in den Optionen abschalten.</p></details>
@@ -386,7 +386,7 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
   <section class="final" id="download">
     <div class="wrap">
       <img class="logo" src="img/logo.webp" alt="" width="110" height="110">
-      <span class="kicker">Download · Version 2.1</span>
+      <span class="kicker">Download · Version 2.1.1</span>
       <h2>Bereit für deine nächste Runde?</h2>
       <p>Installieren, mit Microsoft anmelden, Profil wählen, spielen. Updates kommen danach von selbst.</p>
       <a class="btn btn-main js-dl-main" href="#download">
@@ -394,9 +394,9 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
         <span class="js-dl-label">Download für Windows</span>
       </a>
       <div class="dl-links">
-        <a class="js-dl-win" href="#download">Windows 10/11 · 113 MB</a>
-        <a class="js-dl-mac-arm" href="#download">Mac Apple Silicon · 134 MB</a>
-        <a class="js-dl-mac-intel" href="#download">Mac Intel · 139 MB</a>
+        <a class="js-dl-win" href="#download">Windows 10/11 · 114 MB</a>
+        <a class="js-dl-mac-arm" href="#download">Mac Apple Silicon · 147 MB</a>
+        <a class="js-dl-mac-intel" href="#download">Mac Intel · 155 MB</a>
         <a class="js-releases" href="#" target="_blank" rel="noopener">Alle Versionen</a>
       </div>
     </div>
@@ -420,8 +420,8 @@ footer { border-top: 1px solid var(--line); background: var(--bg2); padding-bloc
   const REPO = 'https://github.com/conlog06/LellekClient';
   const DL = {
     win: REPO + '/releases/latest/download/LellekClient-Setup-Windows.exe',
-    macArm: REPO + '/releases/latest/download/LellekClient-Mac-AppleSilicon.zip',
-    macIntel: REPO + '/releases/latest/download/LellekClient-Mac-Intel.zip',
+    macArm: REPO + '/releases/latest/download/LellekClient-Mac-AppleSilicon.dmg',
+    macIntel: REPO + '/releases/latest/download/LellekClient-Mac-Intel.dmg',
   };
   const isMac = /Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
   const setLink = (sel, url) => document.querySelectorAll(sel).forEach(a => { a.href = url; a.target = '_blank'; a.rel = 'noopener'; });
