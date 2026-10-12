@@ -4,6 +4,12 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.6
+
+- **Vorlagen** für 1.8.9, 1.12.2, 26.2 und automatisch für die neueste Minecraft-Version (aktuell 26.3)
+- Jede Vorlage wird **fertig ausgestattet**: Performance (Sodium, Lithium, FerriteCore, Entity Culling …), Xaero's Minimap & World Map, **FreeCam**, Zoom, Mod Menu, Mouse Tweaks, AppleSkin, Iris – bei 1.8.9 zusätzlich PolyPatcher
+- **Ausstattung mit über 45 Mods** in Gruppen (Performance, Karten, FreeCam & Kamera, HUD, Komfort, Shader & Optik, Social), Suche, „Empfohlene/Alle/Keine“ und Anzeige, was es für die Version gibt
+
 ## Neu in 2.5.2
 
 - Party: „Plan festlegen“ wiederholt bei Verbindungsaussetzern automatisch; ohne Modrinth wird der Plan trotzdem festgelegt (Mitspieler wählen ihr eigenes Profil)

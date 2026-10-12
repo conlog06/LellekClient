@@ -2836,3 +2836,167 @@ async function netRetry(fn, what) {
   const why = last?.name === 'AbortError' ? 'antwortet nicht' : 'nicht erreichbar';
   throw new Error(`${what || 'Server'} ${why} – Internetverbindung prüfen und gleich nochmal versuchen`);
 }
+
+// =====================================================================
+// LellekClient 2.6 – Ausstattung neu: große Auswahl pro Version, FreeCam, automatisch für die neueste Version
+// =====================================================================
+const isNew = (p) => mcMinor(p.version) >= 16;                 // 1.16+ und 26.x
+const modern = (p) => p.loader === 'fabric' || p.loader === 'neoforge';
+const legacy = (p) => p.loader === 'forge' && mcMinor(p.version) <= 12;
+// slugs: Modrinth-Projekte in Reihenfolge (erstes passendes gewinnt), cf: Name für den CurseForge-Notfall
+// def: standardmäßig angehakt (und bei neuen Vorlagen automatisch installiert)
+const KIT = [
+  // Performance
+  { id: 'sodium', group: 'Performance', name: 'Sodium', desc: 'Neue Grafik-Engine – oft doppelte bis dreifache FPS', slugs: ['sodium'], ok: modern, def: true },
+  { id: 'lithium', group: 'Performance', name: 'Lithium', desc: 'Schnellere Spiellogik', slugs: ['lithium'], ok: modern, def: true },
+  { id: 'ferrite-core', group: 'Performance', name: 'FerriteCore', desc: 'Deutlich weniger RAM', slugs: ['ferrite-core'], ok: isNew, def: true },
+  { id: 'entityculling', group: 'Performance', name: 'Entity Culling', desc: 'Verdeckte Tiere, Truhen & Co. werden nicht gezeichnet', slugs: ['entityculling'], ok: () => true, def: true },
+  { id: 'immediatelyfast', group: 'Performance', name: 'ImmediatelyFast', desc: 'Schnelleres HUD, Text und Partikel', slugs: ['immediatelyfast'], ok: isNew, def: true },
+  { id: 'modernfix', group: 'Performance', name: 'ModernFix', desc: 'Schnellerer Start, weniger RAM', slugs: ['modernfix'], ok: (p) => p.loader !== 'fabric' && isNew(p), def: true },
+  { id: 'dynamic-fps', group: 'Performance', name: 'Dynamic FPS', desc: 'Spart Leistung, wenn das Spiel im Hintergrund ist', slugs: ['dynamic-fps'], ok: isNew, def: true },
+  { id: 'moreculling', group: 'Performance', name: 'More Culling', desc: 'Noch weniger unsichtbare Blöcke rendern', slugs: ['moreculling'], ok: modern },
+  { id: 'badoptimizations', group: 'Performance', name: 'BadOptimizations', desc: 'Viele kleine Optimierungen (Licht, Himmel, Partikel)', slugs: ['badoptimizations'], ok: isNew },
+  { id: 'krypton', group: 'Performance', name: 'Krypton', desc: 'Schnellerer Netzwerk-Code – weniger Lag auf Servern', slugs: ['krypton'], ok: (p) => p.loader === 'fabric' },
+  { id: 'sodium-extra', group: 'Performance', name: 'Sodium Extra', desc: 'Mehr Grafik-Optionen (Nebel, Animationen, Partikel)', slugs: ['sodium-extra'], ok: modern },
+  { id: 'reeses-sodium-options', group: 'Performance', name: "Reese's Sodium Options", desc: 'Übersichtliches Grafik-Menü für Sodium', slugs: ['reeses-sodium-options'], ok: modern },
+  { id: 'patcher', group: 'Performance', name: 'PolyPatcher', desc: 'FPS-Boost und Fixes für alte Versionen (PvP-Standard)', slugs: ['patcher'], ok: legacy, def: (p) => p.version === '1.8.9' },
+  { id: 'betterfps', group: 'Performance', name: 'BetterFps', desc: 'Schnellere Mathe-Routinen', slugs: [], cf: 'BetterFps', ok: legacy },
+  { id: 'foamfix', group: 'Performance', name: 'FoamFix', desc: 'Weniger RAM in großen 1.12.2-Modpacks', slugs: [], cf: 'FoamFix', ok: (p) => p.loader === 'forge' && p.version === '1.12.2' },
+  { id: 'vanillafix', group: 'Performance', name: 'VanillaFix', desc: 'Weniger Abstürze, schnelleres Laden (1.12.2)', slugs: [], cf: 'VanillaFix', ok: (p) => p.loader === 'forge' && p.version === '1.12.2' },
+  // Karten
+  { id: 'xaeros-minimap', group: 'Karte & Waypoints', name: "Xaero's Minimap", desc: 'Minimap mit Waypoints', slugs: ['xaeros-minimap'], ok: () => true, def: true },
+  { id: 'xaeros-world-map', group: 'Karte & Waypoints', name: "Xaero's World Map", desc: 'Vollbild-Weltkarte', slugs: ['xaeros-world-map'], ok: () => true, def: true },
+  { id: 'journeymap', group: 'Karte & Waypoints', name: 'JourneyMap', desc: 'Alternative: Karte im Browser, Höhlen-Ansicht', slugs: ['journeymap'], ok: () => true },
+  { id: 'voxelmap', group: 'Karte & Waypoints', name: 'VoxelMap', desc: 'Klassische Minimap', slugs: ['voxelmap-updated'], ok: () => true },
+  // Kamera
+  { id: 'freecam', group: 'FreeCam & Kamera', name: 'FreeCam', desc: 'Kamera frei durch die Welt fliegen lassen, Spieler bleibt stehen', slugs: ['freecam', 'freecam-by-zergatul', 'freecam_yannis_'], cf: 'Freecam', ok: () => true, def: true },
+  { id: 'zoomify', group: 'FreeCam & Kamera', name: 'Zoomify', desc: 'Zoom wie bei OptiFine (Taste C), einstellbar', slugs: ['zoomify', 'ok-zoomer'], ok: modern, def: true },
+  { id: 'replaymod', group: 'FreeCam & Kamera', name: 'Replay Mod', desc: 'Runden aufnehmen und als Video mit Kamerafahrten rendern', slugs: ['replaymod'], cf: 'Replay Mod', ok: (p) => p.loader !== 'neoforge' },
+  { id: 'not-enough-animations', group: 'FreeCam & Kamera', name: 'Not Enough Animations', desc: 'Schönere Animationen in der Third-Person', slugs: ['not-enough-animations'], ok: isNew },
+  // HUD & Info
+  { id: 'appleskin', group: 'HUD & Info', name: 'AppleSkin', desc: 'Sättigung und Nährwert am Hungerbalken', slugs: ['appleskin'], ok: isNew, def: true },
+  { id: 'jade', group: 'HUD & Info', name: 'Jade', desc: 'Zeigt an, worauf du schaust (Block, Tier, Kiste)', slugs: ['jade'], ok: isNew },
+  { id: 'betterf3', group: 'HUD & Info', name: 'BetterF3', desc: 'Übersichtliches, farbiges F3-Menü', slugs: ['betterf3'], ok: isNew },
+  { id: '3dskinlayers', group: 'HUD & Info', name: '3D Skin Layers', desc: 'Skin-Überzüge in echtem 3D', slugs: ['3dskinlayers'], ok: () => true },
+  // Komfort
+  { id: 'modmenu', group: 'Komfort', name: 'Mod Menu', desc: 'Liste aller Mods mit Einstellungen', slugs: ['modmenu'], ok: (p) => p.loader === 'fabric', def: true },
+  { id: 'mouse-tweaks', group: 'Komfort', name: 'Mouse Tweaks', desc: 'Inventar schneller mit der Maus sortieren', slugs: ['mouse-tweaks'], cf: 'Mouse Tweaks', ok: () => true, def: true },
+  { id: 'jei', group: 'Komfort', name: 'JEI', desc: 'Alle Rezepte im Inventar nachschlagen', slugs: ['jei'], ok: (p) => !!p.loader },
+  { id: 'inventory-profiles-next', group: 'Komfort', name: 'Inventory Profiles Next', desc: 'Inventar automatisch sortieren', slugs: ['inventory-profiles-next'], ok: isNew },
+  { id: 'shulkerboxtooltip', group: 'Komfort', name: 'Shulker Box Tooltip', desc: 'Inhalt von Shulkerkisten im Tooltip', slugs: ['shulkerboxtooltip'], ok: isNew },
+  { id: 'controlling', group: 'Komfort', name: 'Controlling', desc: 'Tastenbelegung durchsuchen, Konflikte sehen', slugs: ['controlling'], ok: isNew },
+  { id: 'chat-heads', group: 'Komfort', name: 'Chat Heads', desc: 'Spielerköpfe neben Chat-Nachrichten', slugs: ['chat-heads'], ok: isNew },
+  { id: 'no-chat-reports', group: 'Komfort', name: 'No Chat Reports', desc: 'Chat-Nachrichten ohne Signatur', slugs: ['no-chat-reports'], ok: isNew },
+  { id: 'litematica', group: 'Komfort', name: 'Litematica', desc: 'Baupläne als Hologramm (Fabric)', slugs: ['litematica'], ok: (p) => p.loader === 'fabric' },
+  // Optik
+  { id: 'iris', group: 'Shader & Optik', name: 'Iris', desc: 'Shader-Loader (mit Sodium)', slugs: ['iris'], ok: modern, def: true },
+  { id: 'oculus', group: 'Shader & Optik', name: 'Oculus', desc: 'Shader-Loader für Forge', slugs: ['oculus'], ok: (p) => p.loader === 'forge' && isNew(p) },
+  { id: 'complementary-reimagined', group: 'Shader & Optik', name: 'Complementary Reimagined', kind: 'shaderpacks', desc: 'Beliebtestes Shaderpack', slugs: ['complementary-reimagined'], ok: isNew },
+  { id: 'bsl-shaders', group: 'Shader & Optik', name: 'BSL Shaders', kind: 'shaderpacks', desc: 'Klassisches, schönes Shaderpack', slugs: ['bsl-shaders'], ok: isNew },
+  { id: 'makeup-ultra-fast-shaders', group: 'Shader & Optik', name: 'MakeUp Ultra Fast', kind: 'shaderpacks', desc: 'Shader für schwache PCs', slugs: ['makeup-ultra-fast-shaders'], ok: isNew },
+  { id: 'continuity', group: 'Shader & Optik', name: 'Continuity', desc: 'Verbundene Texturen (Glas ohne Rahmen)', slugs: ['continuity'], ok: modern },
+  { id: 'lambdynamiclights', group: 'Shader & Optik', name: 'LambDynamicLights', desc: 'Fackel in der Hand leuchtet', slugs: ['lambdynamiclights'], ok: modern },
+  { id: 'optifine', group: 'Shader & Optik', name: 'OptiFine', kind: 'manual', desc: 'Performance + Shader für 1.8.9/1.12.2 – nur manuell von optifine.net erlaubt', url: 'https://optifine.net/downloads', slugs: [], ok: legacy },
+  // Social
+  { id: 'simple-voice-chat', group: 'Social & Voice', name: 'Simple Voice Chat', desc: 'Proximity-Voice – der Server braucht die Mod auch', slugs: ['simple-voice-chat'], ok: (p) => mcMinor(p.version) >= 12 && !!p.loader },
+  { id: 'essential', group: 'Social & Voice', name: 'Essential', desc: 'Welten mit Freunden teilen, Screenshots, Cosmetics', slugs: ['essential'], cf: 'Essential Mod', ok: (p) => !!p.loader },
+];
+const kitCache = new Map(); // `${slug}|${version}|${loader}|${kind}` → { at, version }
+async function kitResolve(item, p) {
+  const kind = item.kind || 'mods';
+  for (const slug of item.slugs) {
+    const key = `${slug}|${p.version}|${p.loader}|${kind}`; const c = kitCache.get(key);
+    if (c && Date.now() - c.at < 30 * 60000) { if (c.version) return { slug, version: c.version }; continue; }
+    let v = null; try { v = pickVersion(await modrinthVersions(slug, p, kind)); } catch {}
+    kitCache.set(key, { at: Date.now(), version: v });
+    if (v) return { slug, version: v };
+  }
+  return null;
+}
+function kitInstalled(p, item) {
+  if (p.installed?.[item.id]) { const f = p.installed[item.id]; const d = kindDir(p.id, item.kind || 'mods'); if (fs.existsSync(path.join(d, f)) || fs.existsSync(path.join(d, f + '.disabled'))) return f; }
+  for (const s of item.slugs) { const f = p.installed?.[s]; if (f && fs.existsSync(path.join(kindDir(p.id, item.kind || 'mods'), f))) return f; }
+  return null;
+}
+const kitDef = (item, p) => typeof item.def === 'function' ? !!item.def(p) : !!item.def;
+ipcMain.removeHandler('bundle:list');
+ipcMain.handle('bundle:list', async (_e, profileId) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  if (!p.loader) return [];
+  const items = KIT.filter(i => i.ok(p));
+  const out = [];
+  await pool(items, 8, async (it) => {
+    const installed = kitInstalled(p, it);
+    let available = it.kind === 'manual', ver = null;
+    if (!installed && it.kind !== 'manual') { const r = await kitResolve(it, p); available = !!r || !!it.cf; ver = r?.version?.version_number || null; }
+    out.push({ slug: it.id, group: it.group, name: it.name, desc: it.desc, kind: it.kind || 'mods', url: it.url, def: kitDef(it, p), installed, available: installed ? true : available, version: ver, cfOnly: !installed && !ver && !!it.cf });
+  });
+  return out.sort((a, b) => KIT.findIndex(i => i.id === a.slug) - KIT.findIndex(i => i.id === b.slug));
+});
+async function kitInstall(p, ids, onEach = () => {}) {
+  p.installed ??= {};
+  const results = []; await ensureFabricApi(p);
+  let n = 0;
+  for (const id of ids) {
+    const item = KIT.find(i => i.id === id); if (!item || item.kind === 'manual') continue;
+    onEach(item, ++n, ids.length);
+    if (kitInstalled(p, item)) { results.push({ slug: id, ok: true, file: kitInstalled(p, item) }); continue; }
+    try {
+      const r = await kitResolve(item, p);
+      if (r) { const files = await installModrinthVersion(p, item.kind || 'mods', r.version, new Set()); p.installed[id] = files[files.length - 1]; results.push({ slug: id, ok: true, file: files.join(', ') }); continue; }
+      const file = item.cf ? await curseforgeFile(item.cf, p, item.kind || 'mods') : null;
+      if (!file) throw new Error(`nicht für ${p.version} verfügbar`);
+      const name = path.basename(file.name); await download(file.url, path.join(kindDir(p.id, item.kind || 'mods'), name));
+      p.installed[id] = name; results.push({ slug: id, ok: true, file: name });
+    } catch (e) { results.push({ slug: id, ok: false, error: e.message }); }
+  }
+  saveStore(); return results;
+}
+ipcMain.removeHandler('bundle:install');
+ipcMain.handle('bundle:install', async (e, { profileId, slugs }) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  await tmSnapshotQuiet(p.id, 'Vor der Ausstattung');
+  const r = await kitInstall(p, slugs, (it, i, n) => send('launch:progress', { task: `Ausstattung: ${it.name} (${i}/${n})`, percent: i / n }));
+  send('launch:progress', { task: 'Ausstattung fertig', percent: 1 });
+  return r;
+});
+
+// ---------- Vorlagen: 1.8.9, 1.12.2, 26.2 und immer die neuesten Versionen automatisch ----------
+async function presetList() {
+  const base = [
+    { key: '1.8.9-forge', name: 'Lellek PvP 1.8.9', version: '1.8.9', loader: 'forge', memory: 3, hint: 'PvP-Klassiker mit LellekHUD, FreeCam, Minimap, Patcher' },
+    { key: '1.12.2-forge', name: 'Lellek Mods 1.12.2', version: '1.12.2', loader: 'forge', memory: 4, hint: 'Forge-Ära mit LellekHUD, FreeCam, Karten, JourneyMap' },
+    { key: 'fabric', name: 'Lellek 26.2', version: '26.2', loader: 'fabric', memory: 4, hint: 'Fabric mit LellekHUD, Sodium, Iris, FreeCam, Karten' },
+  ];
+  let newer = [];
+  try {
+    const m = await manifest(); const rel = (m.versions || []).filter(v => v.type === 'release').map(v => v.id);
+    const i26 = rel.indexOf('26.2'); newer = (i26 > 0 ? rel.slice(0, i26) : rel.slice(0, 1)).slice(0, 2); // bis zu zwei Versionen neuer als 26.2
+    if (m.latest?.release && !newer.includes(m.latest.release) && m.latest.release !== '26.2') newer.unshift(m.latest.release);
+  } catch {}
+  const latest = newer[0];
+  for (const v of newer.slice(0, 2)) base.push({ key: `fabric-${v}`, name: `Lellek ${v}`, version: v, loader: 'fabric', memory: 4, hint: `${v === latest ? 'Neueste Version · ' : ''}Fabric mit Sodium, Iris, FreeCam, Karten und Performance`, latest: v === latest });
+  return base;
+}
+ipcMain.removeHandler('presets:list');
+ipcMain.handle('presets:list', () => presetList());
+ipcMain.removeHandler('presets:create');
+ipcMain.handle('presets:create', async (_e, key) => {
+  const base = (await presetList()).find(x => x.key === key); if (!base) throw new Error('Unbekannte Vorlage');
+  const prog = (task, percent) => send('launch:progress', { task, percent });
+  prog(`Vorlage ${base.name}: Loader suchen`, 0.05);
+  let loaderVersion = '';
+  if (base.loader === 'fabric') loaderVersion = (await getJson(`https://meta.fabricmc.net/v2/versions/loader/${base.version}`))[0]?.loader.version || '';
+  if (base.loader === 'forge') { const pr = (await getJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json')).promos; loaderVersion = pr[`${base.version}-recommended`] || pr[`${base.version}-latest`] || ''; }
+  if (!loaderVersion) throw new Error(`${base.loader === 'fabric' ? 'Fabric' : 'Forge'} gibt es für ${base.version} noch nicht – bitte in ein paar Tagen nochmal versuchen`);
+  const p = { id: newId(), name: base.name, version: base.version, loader: base.loader, memory: base.memory, loaderVersion, javaPath: '', preset: key, installed: {} };
+  store.profiles.push(p);
+  for (const sub of ['mods', 'shaderpacks', 'resourcepacks', 'datapacks', 'config']) fs.mkdirSync(path.join(instanceDir(p), sub), { recursive: true });
+  saveStore();
+  let hudInstalled = false; try { hudInstalled = await ensureHud(p); } catch {}
+  // Empfohlene Ausstattung gleich mitinstallieren (Performance, Karten, FreeCam …)
+  const defs = KIT.filter(i => i.ok(p) && kitDef(i, p) && i.kind !== 'manual').map(i => i.id);
+  const res = await kitInstall(p, defs, (it, i, n) => prog(`Vorlage ${base.name}: ${it.name} (${i}/${n})`, 0.1 + 0.9 * i / n));
+  prog('Vorlage fertig', 1);
+  return { profiles: store.profiles, id: p.id, hudInstalled, kit: { ok: res.filter(r => r.ok).length, failed: res.filter(r => !r.ok).map(r => KIT.find(i => i.id === r.slug)?.name || r.slug) } };
+});

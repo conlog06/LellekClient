@@ -757,3 +757,68 @@ async function whatsNew() {
   setTimeout(updateChatBadge, 3000);
   setTimeout(() => whatsNew().catch(() => {}), 2500);
 })();
+
+// =====================================================================
+// 2.6 – Ausstattung mit großer Auswahl, Vorlagen inkl. neuester Version
+// =====================================================================
+$('#bundleDialog').classList.add('kit-dlg');
+{
+  const bar = el('div', 'kit-bar'); bar.id = 'kitBar';
+  const q = el('input', 'input grow'); q.placeholder = 'Mods suchen …'; q.id = 'kitSearch';
+  q.oninput = () => { const s = q.value.trim().toLowerCase(); $$('#bundleList .bundle-item').forEach(r => r.classList.toggle('hidden', !!s && !r.textContent.toLowerCase().includes(s))); $$('#bundleList .bundle-group').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('bundle-group')) { if (!n.classList.contains('hidden')) any = true; n = n.nextElementSibling; } g.classList.toggle('hidden', !any); }); };
+  const pick = (fn) => { $$('#bundleList .bundle-item').forEach(r => { const cb = r.querySelector('input'); if (!cb.disabled) cb.checked = fn(r); }); kitCount(); };
+  bar.append(q, btn('ghost small', 'Empfohlene', () => pick(r => r.dataset.def === '1')), btn('ghost small', 'Alle', () => pick(() => true)), btn('ghost small', 'Keine', () => pick(() => false)));
+  $('#bundleList').before(bar);
+  $('#bundleList').addEventListener('change', kitCount);
+}
+function kitCount() { const n = $$('#bundleList .bundle-item input').filter(c => c.checked && !c.disabled).length; $('#bundleInstall').textContent = n ? `${n} installieren` : 'Ausgewählte installieren'; }
+openBundle = async function (p) {
+  if (!p) return;
+  bundleProfile = p; $('#kitSearch').value = '';
+  $('#bundleSub').textContent = `${p.name} · ${p.version} · ${loaderLabel(p)} – Empfohlenes ist vorausgewählt, alles andere kannst du dazunehmen.`;
+  const box = $('#bundleList'); box.innerHTML = ''; box.append(el('p', 'muted', 'Prüfe, was es für diese Version gibt …'));
+  $('#bundleDialog').showModal();
+  let items = [];
+  try { items = await api.bundle.list(p.id); } catch (e) { box.innerHTML = ''; box.append(el('p', 'muted', e.message)); return; }
+  box.innerHTML = '';
+  if (!p.loader) { box.append(el('p', 'muted', 'Dieses Profil ist Vanilla – für Mods braucht es Fabric, Forge oder NeoForge. Tipp: unter Profile eine Vorlage anlegen.')); return; }
+  let group = '', grid = null;
+  for (const it of items) {
+    if (it.group !== group) { group = it.group; box.append(el('div', 'bundle-group', group)); grid = el('div', 'kit-grid'); box.append(grid); }
+    const row = el('label', 'bundle-item' + (it.available ? '' : ' na')); row.dataset.slug = it.slug; row.dataset.def = it.def ? '1' : '0';
+    const cb = el('input'); cb.type = 'checkbox'; cb.className = 'sw';
+    cb.checked = !!it.installed || (it.available && it.def && it.kind !== 'manual'); cb.disabled = !!it.installed || !it.available || it.kind === 'manual';
+    const body = el('div'); const t = el('b', '', it.name); if (it.def) t.append(el('span', 'pill acc kit-rec', 'empfohlen')); body.append(t, el('span', '', it.desc));
+    const state = el('span', 'state', it.installed ? 'installiert' : !it.available ? `nicht für ${p.version}` : it.version ? it.version : it.cfOnly ? 'CurseForge' : '');
+    if (!it.installed && !it.available) state.classList.add('muted-state');
+    if (it.kind === 'manual') { const b = btn('ghost small', 'Seite öffnen', (e) => { e.preventDefault(); api.bundle.open(it.url); }); row.append(cb, body, b); }
+    else row.append(cb, body, state);
+    grid.append(row);
+  }
+  kitCount();
+};
+// Vorlagen-Karten (inkl. neuester Minecraft-Version)
+{
+  const _rp = renderProfiles;
+  renderProfiles = async function () {
+    await _rp();
+    const pl = $('#presetList'); let presets = [];
+    try { presets = await api.presets.list(); } catch { return; }
+    pl.innerHTML = '';
+    for (const t of presets) {
+      const c = el('div', 'card preset-card' + (t.latest ? ' latest' : ''));
+      const h = el('div', 'row gap'); h.append(el('b', '', t.name)); if (t.latest) h.append(el('span', 'pill ok', 'neueste Version'));
+      const meta = el('div', 'pcard-meta'); meta.append(el('span', 'pill', t.version), el('span', 'pill', LOADER_NAMES[t.loader] || t.loader));
+      const go = btn('primary', 'Anlegen', async () => {
+        go.disabled = true; go.textContent = 'Wird eingerichtet …';
+        try {
+          const r = await api.presets.create(t.key); state.current = r.id; await loadProfiles();
+          toast(`„${t.name}“ ist bereit – ${r.kit?.ok || 0} Mods installiert${r.hudInstalled ? ' + LellekHUD' : ''}${r.kit?.failed?.length ? ` (nicht verfügbar: ${r.kit.failed.join(', ')})` : ''}`);
+          renderProfiles(); openBundle(currentProfile());
+        } catch (e) { toast(e.message, true); go.disabled = false; go.textContent = 'Anlegen'; }
+      });
+      const act = el('div', 'actions'); act.append(go);
+      c.append(h, meta, el('span', 'muted', t.hint), act); pl.append(c);
+    }
+  };
+}
