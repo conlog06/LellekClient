@@ -2943,11 +2943,11 @@ async function kitInstall(p, ids, onEach = () => {}) {
     if (kitInstalled(p, item)) { results.push({ slug: id, ok: true, file: kitInstalled(p, item) }); continue; }
     try {
       const r = await kitResolve(item, p);
-      if (r) { const files = await installModrinthVersion(p, item.kind || 'mods', r.version, new Set()); p.installed[id] = files[files.length - 1]; results.push({ slug: id, ok: true, file: files.join(', ') }); continue; }
+      if (r) { const files = await installModrinthVersion(p, item.kind || 'mods', r.version, new Set()); p.installed[id] = files[files.length - 1]; (p.kitFiles ??= {})[id] = files; results.push({ slug: id, ok: true, file: files.join(', ') }); continue; }
       const file = item.cf ? await curseforgeFile(item.cf, p, item.kind || 'mods') : null;
       if (!file) throw new Error(`nicht für ${p.version} verfügbar`);
       const name = path.basename(file.name); await download(file.url, path.join(kindDir(p.id, item.kind || 'mods'), name));
-      p.installed[id] = name; results.push({ slug: id, ok: true, file: name });
+      p.installed[id] = name; (p.kitFiles ??= {})[id] = [name]; results.push({ slug: id, ok: true, file: name });
     } catch (e) { results.push({ slug: id, ok: false, error: e.message }); }
   }
   saveStore(); return results;
@@ -2995,8 +2995,40 @@ ipcMain.handle('presets:create', async (_e, key) => {
   saveStore();
   let hudInstalled = false; try { hudInstalled = await ensureHud(p); } catch {}
   // Empfohlene Ausstattung gleich mitinstallieren (Performance, Karten, FreeCam …)
-  const defs = KIT.filter(i => i.ok(p) && kitDef(i, p) && i.kind !== 'manual').map(i => i.id);
+  const defs = store.settings.kitAuto === false ? [] : KIT.filter(i => i.ok(p) && kitDef(i, p) && i.kind !== 'manual').map(i => i.id);
   const res = await kitInstall(p, defs, (it, i, n) => prog(`Vorlage ${base.name}: ${it.name} (${i}/${n})`, 0.1 + 0.9 * i / n));
   prog('Vorlage fertig', 1);
   return { profiles: store.profiles, id: p.id, hudInstalled, kit: { ok: res.filter(r => r.ok).length, failed: res.filter(r => !r.ok).map(r => KIT.find(i => i.id === r.slug)?.name || r.slug) } };
+});
+
+// ---------- Ausstattung wieder entfernen (einzeln, alle empfohlenen oder alles) ----------
+async function kitRemove(p, ids) {
+  if (running.has(p.id)) throw new Error('Bitte erst Minecraft für dieses Profil beenden');
+  await tmSnapshotQuiet(p.id, 'Vor dem Entfernen der Ausstattung');
+  p.kitFiles ??= {}; p.installed ??= {};
+  const keepIds = KIT.filter(i => !ids.includes(i.id) && kitInstalled(p, i)).map(i => i.id);
+  const stillUsed = new Set(keepIds.flatMap(i => p.kitFiles[i] || [p.installed[i]]).filter(Boolean));
+  const removed = [];
+  for (const id of ids) {
+    const item = KIT.find(i => i.id === id); if (!item || item.kind === 'manual') continue;
+    const main = kitInstalled(p, item); if (!main) continue;
+    const dir = kindDir(p.id, item.kind || 'mods');
+    const files = new Set([main, ...(p.kitFiles[id] || [])]);
+    for (const f of files) {
+      if (!f || stillUsed.has(f) || /^fabric-api/i.test(f)) continue; // gemeinsame Abhängigkeiten und Fabric API bleiben
+      const safe = path.basename(f);
+      for (const x of [safe, safe + '.disabled']) await fsp.rm(path.join(dir, x), { force: true });
+      for (const [k, v] of Object.entries(p.installed)) if (v === f) delete p.installed[k];
+    }
+    delete p.installed[id]; delete p.kitFiles[id]; removed.push(item.name);
+  }
+  updateCache.clear?.(); saveStore();
+  return { removed, profiles: store.profiles };
+}
+ipcMain.handle('bundle:remove', async (_e, { profileId, slugs, which }) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  let ids = Array.isArray(slugs) ? slugs : [];
+  if (which === 'recommended') ids = KIT.filter(i => i.ok(p) && kitDef(i, p) && kitInstalled(p, i)).map(i => i.id);
+  if (which === 'all') ids = KIT.filter(i => kitInstalled(p, i)).map(i => i.id);
+  return kitRemove(p, ids);
 });

@@ -114,13 +114,14 @@ $('#settingsForm').addEventListener('submit', flashSaved);
   const _ls = loadSettings;
   loadSettings = async function (...a) {
     const r = await _ls.apply(this, a); const s = await api.settings.get();
-    $('#optRecap').checked = s.sessionRecap !== false; $('#optChatNotify').checked = s.chatNotify !== false; $('#optPerf').checked = !!ui.perf;
+    $('#optRecap').checked = s.sessionRecap !== false; $('#optKitAuto').checked = s.kitAuto !== false; $('#optChatNotify').checked = s.chatNotify !== false; $('#optPerf').checked = !!ui.perf;
     renderBadgeSelect();
     return r;
   };
 }
 $('#optRecap').onchange = (e) => api.settings.save({ sessionRecap: e.target.checked }).then(flashSaved);
 $('#optChatNotify').onchange = (e) => api.settings.save({ chatNotify: e.target.checked }).then(flashSaved);
+$('#optKitAuto').onchange = (e) => api.settings.save({ kitAuto: e.target.checked }).then(flashSaved);
 $('#optPerf').onchange = (e) => { setUi({ perf: e.target.checked }); toast(e.target.checked ? 'Leistungsmodus an – keine Animationen und Effekte' : 'Leistungsmodus aus'); };
 $('#perfOpen').onclick = () => openAutopilot(state.current);
 async function renderBadgeSelect() {
@@ -195,6 +196,7 @@ const btn = (cls, text, fn) => { const b = el('button', cls, text); b.type = 'bu
         { label: '🥳 Mit Party spielen', run: () => { showView('party'); setTimeout(() => partyPlanWith(p.id), 300); } },
         '-',
         { label: 'Ausstattung', run: () => openBundle(p) },
+        { label: 'Ausstattung entfernen …', run: async () => { if (!confirm(`Alle über die Ausstattung installierten Mods aus „${p.name}“ entfernen? Selbst hinzugefügte Mods bleiben. Vorher wird ein Zeitmaschinen-Stand gesichert.`)) return; try { const r = await api.bundle.remove({ profileId: p.id, which: 'all' }); state.profiles = r.profiles; toast(r.removed.length ? `${r.removed.length} Mods entfernt` : 'Keine Ausstattung installiert'); } catch (e) { toast(e.message, true); } } },
         { label: 'Duplizieren', run: async () => { try { state.profiles = await api.profiles.duplicate(p.id); renderProfiles(); renderLaunch(); toast('Profil kopiert'); } catch (e) { toast(e.message, true); } } },
         { label: 'Exportieren', run: () => exportProfile(p) },
         ...(/Mac/.test(navigator.userAgent) ? [] : [{ label: 'Desktop-Verknüpfung', run: () => createShortcut(p.id) }]),
@@ -767,11 +769,36 @@ $('#bundleDialog').classList.add('kit-dlg');
   const q = el('input', 'input grow'); q.placeholder = 'Mods suchen …'; q.id = 'kitSearch';
   q.oninput = () => { const s = q.value.trim().toLowerCase(); $$('#bundleList .bundle-item').forEach(r => r.classList.toggle('hidden', !!s && !r.textContent.toLowerCase().includes(s))); $$('#bundleList .bundle-group').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('bundle-group')) { if (!n.classList.contains('hidden')) any = true; n = n.nextElementSibling; } g.classList.toggle('hidden', !any); }); };
   const pick = (fn) => { $$('#bundleList .bundle-item').forEach(r => { const cb = r.querySelector('input'); if (!cb.disabled) cb.checked = fn(r); }); kitCount(); };
-  bar.append(q, btn('ghost small', 'Empfohlene', () => pick(r => r.dataset.def === '1')), btn('ghost small', 'Alle', () => pick(() => true)), btn('ghost small', 'Keine', () => pick(() => false)));
+  const rmRec = btn('ghost small danger', 'Empfohlene entfernen', async () => {
+    const p = bundleProfile; if (!p) return;
+    const n = $$('#bundleList .bundle-item').filter(r => r.dataset.installed === '1' && r.dataset.def === '1').length;
+    if (!n) { toast('Keine empfohlenen Mods installiert'); return; }
+    if (!confirm(`Die ${n} empfohlenen Mods aus „${p.name}“ entfernen? Vorher wird ein Zeitmaschinen-Stand gesichert.`)) return;
+    try { const r = await api.bundle.remove({ profileId: p.id, which: 'recommended' }); state.profiles = r.profiles; toast(`${r.removed.length} Mods entfernt`); openBundle(p); } catch (e) { toast(e.message, true); }
+  });
+  rmRec.title = 'Alle installierten empfohlenen Mods auf einmal löschen';
+  bar.append(q, btn('ghost small', 'Empfohlene', () => pick(r => r.dataset.def === '1' || r.dataset.installed === '1')), btn('ghost small', 'Alle', () => pick(() => true)), btn('ghost small', 'Keine', () => pick(() => false)), rmRec);
   $('#bundleList').before(bar);
   $('#bundleList').addEventListener('change', kitCount);
 }
-function kitCount() { const n = $$('#bundleList .bundle-item input').filter(c => c.checked && !c.disabled).length; $('#bundleInstall').textContent = n ? `${n} installieren` : 'Ausgewählte installieren'; }
+function kitDiff() { const rows = $$('#bundleList .bundle-item').filter(r => !r.querySelector('input').disabled); return { add: rows.filter(r => r.querySelector('input').checked && r.dataset.installed !== '1').map(r => r.dataset.slug), remove: rows.filter(r => !r.querySelector('input').checked && r.dataset.installed === '1').map(r => r.dataset.slug) }; }
+function kitCount() {
+  const d = kitDiff(), b = $('#bundleInstall');
+  b.textContent = d.add.length && d.remove.length ? `Übernehmen (${d.add.length} neu, ${d.remove.length} entfernen)` : d.remove.length ? `${d.remove.length} entfernen` : d.add.length ? `${d.add.length} installieren` : 'Übernehmen';
+  b.classList.toggle('danger-fill', !!d.remove.length && !d.add.length);
+  $$('#bundleList .bundle-item').forEach(r => { const cb = r.querySelector('input'); const st = r.querySelector('.state'); if (r.dataset.installed === '1' && st) { st.textContent = cb.checked ? 'installiert' : 'wird entfernt'; st.classList.toggle('rm', !cb.checked); } });
+}
+$('#bundleInstall').onclick = async () => {
+  const p = bundleProfile; if (!p) return; const d = kitDiff();
+  if (!d.add.length && !d.remove.length) { $('#bundleDialog').close(); return; }
+  const b = $('#bundleInstall'); b.disabled = true; b.textContent = 'Wird übernommen …';
+  try {
+    if (d.remove.length) { const r = await api.bundle.remove({ profileId: p.id, slugs: d.remove }); toast(`${r.removed.length} Mods entfernt`); }
+    if (d.add.length) { const res = await api.bundle.install({ profileId: p.id, slugs: d.add }); const bad = res.filter(r => !r.ok); toast(`${res.length - bad.length} von ${res.length} installiert${bad.length ? ' – ' + bad.map(r => r.slug).join(', ') + ' nicht möglich' : ''}`, !!bad.length); }
+    await loadProfiles(); openBundle(state.profiles.find(x => x.id === p.id) || p);
+  } catch (e) { toast(e.message, true); }
+  b.disabled = false; kitCount();
+};
 openBundle = async function (p) {
   if (!p) return;
   bundleProfile = p; $('#kitSearch').value = '';
@@ -785,9 +812,10 @@ openBundle = async function (p) {
   let group = '', grid = null;
   for (const it of items) {
     if (it.group !== group) { group = it.group; box.append(el('div', 'bundle-group', group)); grid = el('div', 'kit-grid'); box.append(grid); }
-    const row = el('label', 'bundle-item' + (it.available ? '' : ' na')); row.dataset.slug = it.slug; row.dataset.def = it.def ? '1' : '0';
+    const row = el('label', 'bundle-item' + (it.available ? '' : ' na') + (it.installed ? ' inst' : '')); row.dataset.slug = it.slug; row.dataset.def = it.def ? '1' : '0'; row.dataset.installed = it.installed ? '1' : '0';
     const cb = el('input'); cb.type = 'checkbox'; cb.className = 'sw';
-    cb.checked = !!it.installed || (it.available && it.def && it.kind !== 'manual'); cb.disabled = !!it.installed || !it.available || it.kind === 'manual';
+    cb.checked = !!it.installed || (it.available && it.def && it.kind !== 'manual'); cb.disabled = !it.installed && (!it.available || it.kind === 'manual');
+    if (it.installed) row.title = 'Installiert – ausschalten und „Übernehmen“ drückt, entfernt die Mod';
     const body = el('div'); const t = el('b', '', it.name); if (it.def) t.append(el('span', 'pill acc kit-rec', 'empfohlen')); body.append(t, el('span', '', it.desc));
     const state = el('span', 'state', it.installed ? 'installiert' : !it.available ? `nicht für ${p.version}` : it.version ? it.version : it.cfOnly ? 'CurseForge' : '');
     if (!it.installed && !it.available) state.classList.add('muted-state');

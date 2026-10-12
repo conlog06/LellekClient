@@ -4,6 +4,12 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.6.1
+
+- Ausstattung wieder entfernen: installierte Mods ausschalten → „Übernehmen“, oder „Empfohlene entfernen“ auf einen Klick; im Profil-Menü „Ausstattung entfernen“
+- Optionen → Spiel & Leistung: automatische Ausstattung neuer Vorlagen abschaltbar
+- Vor jedem Entfernen wird ein Zeitmaschinen-Stand gesichert
+
 ## Neu in 2.6
 
 - **Vorlagen** für 1.8.9, 1.12.2, 26.2 und automatisch für die neueste Minecraft-Version (aktuell 26.3)

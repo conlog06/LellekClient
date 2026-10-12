@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('lellek', {
   browse: { search: invoke('browse:search'), install: invoke('browse:install') },
   vanilla: { info: invoke('vanilla:info'), importSettings: invoke('vanilla:importSettings'), link: invoke('vanilla:link') },
   packs: { search: invoke('packs:search'), install: invoke('packs:install') },
-  bundle: { list: invoke('bundle:list'), install: invoke('bundle:install'), open: invoke('bundle:open') },
+  bundle: { list: invoke('bundle:list'), install: invoke('bundle:install'), remove: invoke('bundle:remove'), open: invoke('bundle:open') },
   spotify: { status: invoke('spotify:status'), login: invoke('spotify:login'), logout: invoke('spotify:logout') },
   settings: { get: invoke('settings:get'), save: invoke('settings:save'), openDataDir: invoke('settings:openDataDir') },
   launch: invoke('launch'),

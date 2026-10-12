@@ -334,3 +334,6 @@ body.win-extra .side-brand .rail-logo { box-shadow: 0 0 0 2px #2EC8D8; }
 .preset-card .pcard-meta { margin: 2px 0 4px; }
 .preset-card.latest { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
 @media (max-width: 980px) { .kit-grid { grid-template-columns: 1fr; } }
+#bundleDialog .bundle-item.inst { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+#bundleDialog .state.rm { color: var(--danger); }
+.danger-fill { background: var(--danger) !important; color: #fff !important; }
