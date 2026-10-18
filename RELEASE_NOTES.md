@@ -4,6 +4,11 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 2.6.2
+
+- **LellekHUD 1.4.2 für 26.3** – in der Vorlage „Lellek 26.3“ und automatisch in allen 26.3-Fabric-Profilen; der Fabric-Loader wird bei Bedarf auf 0.19.5+ angehoben
+- Zoomify ist bei Profilen mit LellekHUD nicht mehr vorausgewählt (LellekHUD hat einen eigenen Zoom)
+
 ## Neu in 2.6.1
 
 - Ausstattung wieder entfernen: installierte Mods ausschalten → „Übernehmen“, oder „Empfohlene entfernen“ auf einen Klick; im Profil-Menü „Ausstattung entfernen“

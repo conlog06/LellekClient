@@ -402,12 +402,14 @@ const HUD_BUNDLED = {
   '1.8.9-forge': path.join(__dirname, '..', 'assets', 'mods', 'LellekHUD-1.8.9.jar'),
   '1.12.2-forge': path.join(__dirname, '..', 'assets', 'mods', 'LellekHUD-1.12.2.jar'),
   'fabric': path.join(__dirname, '..', 'assets', 'mods', 'LellekHUD-26.2.jar'),
+  'fabric-26.3': path.join(__dirname, '..', 'assets', 'mods', 'LellekHUD-26.3.jar'),
 };
 /** Passende HUD-Jar für ein Profil (null = keine für diese Version) */
 function hudFor(p) {
   if (p.loader === 'forge' && p.version === '1.8.9') return HUD_BUNDLED['1.8.9-forge'];
   if (p.loader === 'forge' && p.version === '1.12.2') return HUD_BUNDLED['1.12.2-forge'];
   if (p.loader === 'fabric' && p.version === '26.2') return HUD_BUNDLED['fabric'];
+  if (p.loader === 'fabric' && p.version === '26.3') return HUD_BUNDLED['fabric-26.3'];
   return null;
 }
 /** Version einer LellekHUD-Jar aus fabric.mod.json bzw. mcmod.info lesen */
@@ -2870,7 +2872,7 @@ const KIT = [
   { id: 'voxelmap', group: 'Karte & Waypoints', name: 'VoxelMap', desc: 'Klassische Minimap', slugs: ['voxelmap-updated'], ok: () => true },
   // Kamera
   { id: 'freecam', group: 'FreeCam & Kamera', name: 'FreeCam', desc: 'Kamera frei durch die Welt fliegen lassen, Spieler bleibt stehen', slugs: ['freecam', 'freecam-by-zergatul', 'freecam_yannis_'], cf: 'Freecam', ok: () => true, def: true },
-  { id: 'zoomify', group: 'FreeCam & Kamera', name: 'Zoomify', desc: 'Zoom wie bei OptiFine (Taste C), einstellbar', slugs: ['zoomify', 'ok-zoomer'], ok: modern, def: true },
+  { id: 'zoomify', group: 'FreeCam & Kamera', name: 'Zoomify', desc: 'Zoom wie bei OptiFine (Taste C), einstellbar – LellekHUD hat schon einen Zoom', slugs: ['zoomify', 'ok-zoomer'], ok: modern, def: (p) => !hudFor(p) },
   { id: 'replaymod', group: 'FreeCam & Kamera', name: 'Replay Mod', desc: 'Runden aufnehmen und als Video mit Kamerafahrten rendern', slugs: ['replaymod'], cf: 'Replay Mod', ok: (p) => p.loader !== 'neoforge' },
   { id: 'not-enough-animations', group: 'FreeCam & Kamera', name: 'Not Enough Animations', desc: 'Schönere Animationen in der Third-Person', slugs: ['not-enough-animations'], ok: isNew },
   // HUD & Info
@@ -2975,7 +2977,7 @@ async function presetList() {
     if (m.latest?.release && !newer.includes(m.latest.release) && m.latest.release !== '26.2') newer.unshift(m.latest.release);
   } catch {}
   const latest = newer[0];
-  for (const v of newer.slice(0, 2)) base.push({ key: `fabric-${v}`, name: `Lellek ${v}`, version: v, loader: 'fabric', memory: 4, hint: `${v === latest ? 'Neueste Version · ' : ''}Fabric mit Sodium, Iris, FreeCam, Karten und Performance`, latest: v === latest });
+  for (const v of newer.slice(0, 2)) { const hud = !!hudFor({ loader: 'fabric', version: v }); base.push({ key: `fabric-${v}`, name: `Lellek ${v}`, version: v, loader: 'fabric', memory: 4, hint: `${v === latest ? 'Neueste Version · ' : ''}Fabric mit ${hud ? 'LellekHUD, ' : ''}Sodium, Iris, FreeCam, Karten und Performance`, latest: v === latest }); }
   return base;
 }
 ipcMain.removeHandler('presets:list');
@@ -3032,3 +3034,22 @@ ipcMain.handle('bundle:remove', async (_e, { profileId, slugs, which }) => {
   if (which === 'all') ids = KIT.filter(i => kitInstalled(p, i)).map(i => i.id);
   return kitRemove(p, ids);
 });
+
+// ---------- LellekHUD: Fabric-Loader bei Bedarf anheben (z. B. HUD 26.3 braucht Loader 0.19.5+) ----------
+{
+  const _eh = ensureHud;
+  ensureHud = async function (p, log = () => {}) {
+    try {
+      const src = hudFor(p);
+      if (src && p.loader === 'fabric' && fs.existsSync(src)) {
+        const need = (/>=\s*([\d.]+)/.exec(JSON.parse(new AdmZip(src).readAsText('fabric.mod.json')).depends?.fabricloader || '') || [])[1];
+        if (need && cmpVer(p.loaderVersion || '0', need) < 0) {
+          const latest = (await getJson(`https://meta.fabricmc.net/v2/versions/loader/${p.version}`))[0]?.loader.version;
+          if (latest && cmpVer(latest, need) >= 0) { log(`Fabric-Loader ${p.loaderVersion} → ${latest} (LellekHUD braucht ${need}+)`); p.loaderVersion = latest; saveStore(); }
+          else { log(`LellekHUD braucht Fabric-Loader ${need}+ – noch nicht verfügbar, HUD wird übersprungen`); return false; }
+        }
+      }
+    } catch (e) { log('LellekHUD-Prüfung: ' + e.message); }
+    return _eh(p, log);
+  };
+}
