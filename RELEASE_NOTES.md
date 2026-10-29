@@ -9,6 +9,25 @@
 - **LellekHUD 1.4.2 für 26.3** – in der Vorlage „Lellek 26.3“ und automatisch in allen 26.3-Fabric-Profilen; der Fabric-Loader wird bei Bedarf auf 0.19.5+ angehoben
 - Zoomify ist bei Profilen mit LellekHUD nicht mehr vorausgewählt (LellekHUD hat einen eigenen Zoom)
 
+## Neu in 2.7 – stabiler und aufgeräumter
+
+**Stabilität**
+- Einstellungen werden regelmäßig gesichert; ist die Datei beschädigt, stellt der Launcher sie automatisch aus der Sicherung wieder her
+- Downloads laden erst in eine Teil-Datei, prüfen die Größe und versuchen es bis zu dreimal – keine halben Mods mehr
+- Selbstheilung vor jedem Start: defekte Mod-Dateien werden deaktiviert, halbe Downloads entfernt, fehlender Java-Pfad zurückgesetzt, Warnung bei vollem Laufwerk
+- Launcher-Protokoll (logs/launcher.log) mit allen Fehlern; abgestürzte Oberfläche lädt sich selbst neu
+
+**Neu**
+- Hilfe & Diagnose (Optionen): prüft Internet, Konto, Java, Speicher und jedes Profil – mit Reparatur auf Knopfdruck und Fehlerbericht zum Kopieren
+- Weiterspielen auf der Startseite: letzte Welt (ab 1.20 direkt geladen) oder letzter Server mit einem Klick
+- Update-Center: Mod-Updates aller Profile auf einen Blick, einzeln oder alle aktualisieren; tägliche Prüfung im Hintergrund
+- Benachrichtigungen (Glocke oben rechts) mit Verlauf
+
+**Aufgeräumt**
+- Mods & Packs: echte Namen, Symbole und Versionen, Suche, Filter (Aktiv/Aus/Updates), Werkzeug-Menü statt Knopfreihe
+- Server hosten in Reitern: Server & Konsole, Einstellungen, Plugins/Mods, Freunde von außen
+- Profile anheften, Vorlagen einklappbar
+
 ## Neu in 2.6.1
 
 - Ausstattung wieder entfernen: installierte Mods ausschalten → „Übernehmen“, oder „Empfohlene entfernen“ auf einen Klick; im Profil-Menü „Ausstattung entfernen“

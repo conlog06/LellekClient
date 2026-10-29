@@ -64,6 +64,12 @@ contextBridge.exposeInMainWorld('lellek', {
   perf: { plan: invoke('perf:plan'), apply: invoke('perf:apply') },
   home: { summary: invoke('home:summary') },
   windows: { openAnother: invoke('window:openAnother') },
+  // 2.7
+  app: { logError: invoke('app:logError'), startupInfo: invoke('app:startupInfo'), openLauncherLog: invoke('app:openLauncherLog'), onError: on('app:error'), onSelfheal: on('app:selfheal') },
+  diag: { run: invoke('diag:run'), repair: invoke('diag:repair'), report: invoke('diag:report') },
+  cont: { list: invoke('continue:list') },
+  updatesAll: { check: invoke('updates:all'), apply: invoke('updates:apply') },
+  contentMeta: invoke('content:meta'),
   onLog: on('launch:log'),
   onProgress: on('launch:progress'),
   onClosed: on('launch:closed'),

@@ -31,8 +31,20 @@ const CLIENT_NAME = 'LellekClient';
 const DEFAULT_CF_KEY = '$2a$10$cS7B7K8MQOivIx44iqyc4O547xbpwaH/s6r3J.FJHjWgvr/E4A7Fe';
 const CLIENT_VERSION = require('../package.json').version;
 
+// ---------- Launcher-Protokoll (logs/launcher.log): Fehler aus Hauptprozess, Oberfläche und Aktionen ----------
+const LAUNCHER_LOG = path.join(DATA_DIR, 'logs', 'launcher.log');
+function logLauncher(level, msg) {
+  try {
+    fs.mkdirSync(path.dirname(LAUNCHER_LOG), { recursive: true });
+    try { if (fs.statSync(LAUNCHER_LOG).size > 2e6) fs.renameSync(LAUNCHER_LOG, LAUNCHER_LOG + '.1'); } catch {}
+    fs.appendFileSync(LAUNCHER_LOG, `[${new Date().toISOString()}] [${level}] ${String(msg).replace(/--accessToken \S+/g, '--accessToken ***').slice(0, 4000)}\n`);
+  } catch {}
+}
+process.on('uncaughtException', (e) => { logLauncher('FEHLER', e?.stack || e); try { send('app:error', { message: e?.message || String(e) }); } catch {} });
+process.on('unhandledRejection', (e) => { logLauncher('FEHLER', 'Unbehandelt: ' + (e?.stack || e)); });
 const handlers = {}; const _handle = ipcMain.handle.bind(ipcMain);
-ipcMain.handle = (ch, fn) => { handlers[ch] = fn; return _handle(ch, fn); };
+// Jeder Aufruf aus der Oberfläche: Fehler werden protokolliert (und wie gewohnt an die Oberfläche gemeldet)
+ipcMain.handle = (ch, fn) => { handlers[ch] = fn; return _handle(ch, async (...a) => { try { return await fn(...a); } catch (e) { logLauncher('IPC', `${ch}: ${e?.stack || e}`); throw e; } }); };
 const store = loadStore();
 if (WINDOW_NO > 1) syncFromMainStore(store);
 /** Weiteres Fenster: Profile, Favoriten, Konten und Einstellungen vom Hauptfenster übernehmen (eigene Konto-Wahl, Freunde, Chat bleiben getrennt) */
@@ -50,20 +62,35 @@ function syncFromMainStore(st) {
 let win = null;
 let currentAuth = null; // { mclc, profile, xbox }
 
+/** Liest die Einstellungen; ist die Datei kaputt, wird die letzte Sicherung genommen (nie still alles verlieren) */
+function readStoreFile() {
+  let lastErr = null;
+  for (const f of [STORE_FILE, STORE_FILE + '.tmp', STORE_FILE + '.bak']) {
+    try { if (!fs.existsSync(f)) continue; const st = JSON.parse(fs.readFileSync(f, 'utf8')); if (st && typeof st === 'object') { if (f !== STORE_FILE) { globalThis.__storeRecovered = f; try { fs.copyFileSync(STORE_FILE, `${STORE_FILE}.defekt-${Date.now()}`); } catch {} } return st; } }
+    catch (e) { lastErr = e; }
+  }
+  if (lastErr) throw lastErr;
+  throw new Error('neu');
+}
 function loadStore() {
   try {
-    const st = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); st.settings ??= {}; if (!st.settings.curseforgeKey) st.settings.curseforgeKey = DEFAULT_CF_KEY;
+    const st = readStoreFile(); st.settings ??= {}; if (!st.settings.curseforgeKey) st.settings.curseforgeKey = DEFAULT_CF_KEY;
     st.accounts ??= []; // Migration: alter Einzel-Token → Kontoliste
     if (st.refreshToken && !st.accounts.length) { st.accounts.push({ id: 'legacy', name: 'Konto', refreshToken: st.refreshToken }); st.currentAccount = 'legacy'; delete st.refreshToken; }
     return st;
   }
-  catch { return { profiles: [], accounts: [], currentAccount: null, settings: { memory: 4, closeOnLaunch: false, curseforgeKey: DEFAULT_CF_KEY, spotifyClientId: '', cosmeticsServer: 'http://127.0.0.1:8765', voiceServer: 'http://127.0.0.1:8766', updateUrl: '' } }; }
+  catch (e) { if (e?.message !== 'neu') { try { fs.copyFileSync(STORE_FILE, `${STORE_FILE}.defekt-${Date.now()}`); globalThis.__storeRecovered = 'leer'; } catch {} }
+    return { profiles: [], accounts: [], currentAccount: null, settings: { memory: 4, closeOnLaunch: false, curseforgeKey: DEFAULT_CF_KEY, spotifyClientId: '', cosmeticsServer: 'http://127.0.0.1:8765', voiceServer: 'http://127.0.0.1:8766', updateUrl: '' } }; }
 }
 // Speichern gebündelt (max. alle 400 ms) – blockiert den Launcher nicht bei vielen Änderungen hintereinander
-let storeTimer = null;
+let storeTimer = null, lastStoreBackup = 0;
 function saveStoreNow() {
   clearTimeout(storeTimer); storeTimer = null;
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); const tmp = STORE_FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(store)); fs.renameSync(tmp, STORE_FILE); }
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true }); const json = JSON.stringify(store); JSON.parse(json); // nur Gültiges schreiben
+    try { const st = fs.statSync(STORE_FILE); if (Date.now() - (lastStoreBackup || 0) > 30 * 60000 && st.size > 20) { fs.copyFileSync(STORE_FILE, STORE_FILE + '.bak'); lastStoreBackup = Date.now(); } } catch {}
+    const tmp = STORE_FILE + '.tmp'; fs.writeFileSync(tmp, json); fs.renameSync(tmp, STORE_FILE);
+  }
   catch { try { fs.writeFileSync(STORE_FILE, JSON.stringify(store)); } catch {} }
 }
 function saveStore() { if (!storeTimer) storeTimer = setTimeout(saveStoreNow, 400); }
@@ -81,6 +108,8 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.on('render-process-gone', (_e, d) => { logLauncher('FEHLER', `Oberfläche abgestürzt (${d.reason}) – wird neu geladen`); if (d.reason !== 'clean-exit') setTimeout(() => { try { if (!win.isDestroyed()) win.reload(); } catch {} }, 500); });
+  win.on('unresponsive', () => logLauncher('WARNUNG', 'Oberfläche reagiert nicht'));
 }
 app.whenReady().then(async () => {
   for (const d of [ROOT, INSTANCES, JAVA_DIR]) fs.mkdirSync(d, { recursive: true });
@@ -96,22 +125,39 @@ async function getJson(url) {
   if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
   return r.json();
 }
+/** Lädt in eine .part-Datei, prüft die Größe und benennt erst dann um – bis zu 3 Versuche. Keine halben Jars mehr. */
 async function download(url, dest, onProgress) {
-  const r = await fetch(url, { signal: withTimeout(120000) });
-  if (!r.ok) throw new Error(`Download fehlgeschlagen (${r.status}): ${url}`);
-  const total = Number(r.headers.get('content-length') || 0);
-  let done = 0;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const reader = r.body.getReader();
-  const out = fs.createWriteStream(dest);
-  while (true) {
-    const { value, done: end } = await reader.read();
-    if (end) break;
-    out.write(Buffer.from(value));
-    done += value.length;
-    if (onProgress && total) onProgress(done / total);
+  const part = dest + '.part'; let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const r = await fetch(url, { signal: withTimeout(180000), headers: { 'User-Agent': 'LellekClient' } });
+      if (!r.ok) { const e = new Error(`Download fehlgeschlagen (${r.status}): ${url}`); e.fatal = r.status === 404 || r.status === 403; throw e; }
+      const total = Number(r.headers.get('content-length') || 0);
+      let done = 0;
+      const out = fs.createWriteStream(part); let werr = null; out.on('error', (e) => { werr = e; });
+      const reader = r.body.getReader();
+      while (true) {
+        const { value, done: end } = await reader.read();
+        if (end) break;
+        if (werr) throw werr;
+        if (!out.write(Buffer.from(value))) await new Promise((res) => out.once('drain', res));
+        done += value.length;
+        if (onProgress && total) onProgress(done / total);
+      }
+      await new Promise((res, rej) => out.end((e) => e ? rej(e) : res()));
+      if (werr) throw werr;
+      if (total && fs.statSync(part).size !== total) throw new Error('Download unvollständig');
+      fs.renameSync(part, dest);
+      return;
+    } catch (e) {
+      last = e; try { fs.rmSync(part, { force: true }); } catch {}
+      if (e.fatal || attempt === 3) break;
+      await new Promise((res) => setTimeout(res, 1500 * attempt));
+    }
   }
-  await new Promise((res) => out.end(res));
+  logLauncher('DOWNLOAD', `${url}: ${last?.message}`);
+  throw last;
 }
 
 // ---------- Versionen ----------
@@ -1467,6 +1513,12 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
     customArgs: (p.jvmArgs || '').split(/\s+/).filter(Boolean),
     window: { width: p.width || 854, height: p.height || 480, fullscreen: !!p.fullscreen },
   };
+  if (server && String(server).startsWith('world:')) { // Weiterspielen: Einzelspieler-Welt direkt laden (ab 1.20)
+    const w = String(server).slice(6);
+    if (mcMinor(p.version) >= 20 || p.version.startsWith('26')) { opts.quickPlay = { type: 'singleplayer', identifier: w }; log(`Lade Welt „${w}“ direkt`); }
+    else log(`Welt „${w}“: direktes Laden gibt es erst ab 1.20 – bitte im Menü öffnen`);
+    server = null;
+  }
   if (server) { // Direktverbindung: neue Versionen über Quick Play, alte über --server
     const [ip, port] = server.split(':');
     if (mcMinor(p.version) >= 20 || p.version.startsWith('26')) opts.quickPlay = { type: 'multiplayer', identifier: server };
@@ -3053,3 +3105,194 @@ ipcMain.handle('bundle:remove', async (_e, { profileId, slugs, which }) => {
     return _eh(p, log);
   };
 }
+
+// =====================================================================
+// LellekClient 2.7 – Stabilität, Diagnose & Reparatur, Weiterspielen, Update-Center, Mod-Infos
+// =====================================================================
+ipcMain.handle('app:logError', (_e, msg) => { logLauncher('OBERFLÄCHE', msg); return true; });
+ipcMain.handle('app:startupInfo', () => ({ recovered: globalThis.__storeRecovered || null, log: LAUNCHER_LOG }));
+ipcMain.handle('app:openLauncherLog', () => shell.openPath(LAUNCHER_LOG));
+logLauncher('START', `LellekClient ${CLIENT_VERSION} (Fenster ${WINDOW_NO}) auf ${process.platform} ${os.release()} · Electron ${process.versions.electron}${globalThis.__storeRecovered ? ' · Einstellungen aus Sicherung wiederhergestellt: ' + globalThis.__storeRecovered : ''}`);
+
+// ---------- Startprüfung: Selbstheilung vor jedem Spielstart ----------
+function jarOk(file) { try { const st = fs.statSync(file); if (st.size < 100) return false; const z = new AdmZip(file); return z.getEntries().length > 0; } catch { return false; } }
+async function preflight(p, log) {
+  const fixed = [];
+  if (p.javaPath && !fs.existsSync(p.javaPath)) { log(`Eigener Java-Pfad fehlt (${p.javaPath}) – nehme automatisch passendes Java`); p.javaPath = ''; saveStore(); fixed.push('Java-Pfad zurückgesetzt'); }
+  for (const kind of ['mods', 'resourcepacks', 'shaderpacks']) {
+    const d = path.join(instanceDir(p), kind); let list = []; try { list = await fsp.readdir(d); } catch { continue; }
+    for (const f of list) {
+      const full = path.join(d, f);
+      if (f.endsWith('.part')) { await fsp.rm(full, { force: true }); fixed.push(`Halber Download entfernt: ${f}`); continue; }
+      if (kind === 'mods' && /\.jar$/i.test(f) && !jarOk(full)) { await fsp.rename(full, full + '.defekt'); fixed.push(`Defekte Mod deaktiviert: ${f}`); log(`Defekte Mod-Datei ${f} → ${f}.defekt (bitte neu installieren)`); }
+    }
+  }
+  return fixed;
+}
+wrapHandler('launch', async (orig, e, profileId, server) => {
+  const p = profileById(profileId);
+  if (p && !running.has(p.id)) {
+    try { const fixed = await preflight(p, (m) => send('launch:log', { profileId: p.id, line: m })); if (fixed.length) { send('app:selfheal', { profile: p.name, fixed }); logLauncher('HEILUNG', `${p.name}: ${fixed.join('; ')}`); } } catch (err) { logLauncher('WARNUNG', 'Startprüfung: ' + err.message); }
+  }
+  // Freier Speicher – unter 1 GB wird es eng (Logs, Welten, Updates)
+  try { const st = await fsp.statfs(DATA_DIR); const gb = st.bavail * st.bsize / 1e9; if (gb < 1) throw new Error(`Nur noch ${gb.toFixed(1)} GB frei – bitte Platz schaffen (Optionen → Daten & Speicher → Aufräumen)`); } catch (err) { if (/frei/.test(err.message)) throw err; }
+  logLauncher('START', `Spielstart ${p?.name || profileId}${server ? ' → ' + String(server).replace(/^world:/, 'Welt ') : ''}`);
+  return orig(e, profileId, server);
+});
+
+// ---------- Diagnose & Reparatur ----------
+async function reach(url, ms = 8000) { const t = Date.now(); try { const r = await fetch(url, { method: 'GET', signal: withTimeout(ms), headers: { 'User-Agent': 'LellekClient' } }); return { ok: r.status < 500, ms: Date.now() - t, status: r.status }; } catch (e) { return { ok: false, ms: Date.now() - t, error: e.name === 'AbortError' ? 'Zeitüberschreitung' : (e.cause?.code || e.message) }; } }
+function javaWorks(bin) { return new Promise((res) => { const b = bin.replace(/javaw\.exe$/i, 'java.exe'); execFile(b, ['-version'], { timeout: 15000, windowsHide: true }, (err, _o, se) => res(err ? { ok: false, error: err.code || err.message } : { ok: true, version: (/version "([^"]+)"/.exec(String(se)) || [])[1] || '?' })); }); }
+ipcMain.handle('diag:run', async () => {
+  const checks = [];
+  const add = (group, name, status, detail, fix) => checks.push({ group, name, status, detail, fix: fix || null });
+  // System
+  let freeGb = null; try { const st = await fsp.statfs(DATA_DIR); freeGb = st.bavail * st.bsize / 1e9; } catch {}
+  add('System', 'Freier Speicher', freeGb == null ? 'warn' : freeGb < 2 ? 'bad' : freeGb < 10 ? 'warn' : 'ok', freeGb == null ? 'unbekannt' : `${freeGb.toFixed(1)} GB frei`, freeGb != null && freeGb < 10 ? 'clean' : null);
+  try { const t = path.join(DATA_DIR, '.schreibtest'); fs.writeFileSync(t, 'x'); fs.rmSync(t); add('System', 'Datenordner beschreibbar', 'ok', DATA_DIR); } catch (e) { add('System', 'Datenordner beschreibbar', 'bad', e.message); }
+  add('System', 'Arbeitsspeicher', os.totalmem() < 6e9 ? 'warn' : 'ok', `${Math.round(os.totalmem() / 1073741824)} GB gesamt, ${Math.round(os.freemem() / 1073741824 * 10) / 10} GB frei`);
+  add('System', 'Einstellungen', globalThis.__storeRecovered ? 'warn' : 'ok', globalThis.__storeRecovered ? 'Beim Start aus der Sicherung wiederhergestellt' : `${store.profiles.length} Profile, Sicherung ${fs.existsSync(STORE_FILE + '.bak') ? 'vorhanden' : 'folgt'}`);
+  // Netz
+  const [moj, mr, ms, ps, fab] = await Promise.all([reach('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'), reach('https://api.modrinth.com/v2/tag/loader'), reach('https://login.live.com/'), reach(presenceBase() + '/v1/stats', 70000), reach('https://meta.fabricmc.net/v2/versions/loader')]);
+  const net = (n, r, extra) => add('Internet', n, r.ok ? (r.ms > 4000 ? 'warn' : 'ok') : 'bad', r.ok ? `${r.ms} ms${extra || ''}` : `nicht erreichbar (${r.error || r.status})`);
+  net('Mojang (Spieldateien)', moj); net('Modrinth (Mods)', mr); net('Microsoft-Anmeldung', ms); net('Freunde-Server', ps, ps.ms > 20000 ? ' – war im Ruhezustand' : ''); net('Fabric', fab);
+  // Konto
+  add('Konto', 'Microsoft-Konto', currentAuth ? 'ok' : store.accounts.length ? 'warn' : 'bad', currentAuth ? `angemeldet als ${currentAuth.profile.name}` : store.accounts.length ? 'Anmeldung abgelaufen – oben rechts neu anmelden' : 'Nicht angemeldet');
+  // Java
+  let javas = []; try { javas = (await fsp.readdir(JAVA_DIR)).filter(d => fs.statSync(path.join(JAVA_DIR, d)).isDirectory()); } catch {}
+  if (!javas.length) add('Java', 'Java', 'ok', 'Wird beim ersten Start automatisch geladen');
+  for (const d of javas.slice(0, 6)) { const r = await javaWorks(javaBinary(path.join(JAVA_DIR, d))); add('Java', d, r.ok ? 'ok' : 'bad', r.ok ? `läuft (${r.version})` : `startet nicht (${r.error})`, r.ok ? null : `java:${d}`); }
+  // Profile
+  for (const p of store.profiles) {
+    const dir = instanceDir(p); const issues = [];
+    if (!fs.existsSync(dir)) issues.push('Spielordner fehlt');
+    let mods = []; try { mods = (await fsp.readdir(path.join(dir, 'mods'))); } catch {}
+    const bad = mods.filter(f => /\.jar$/i.test(f) && !jarOk(path.join(dir, 'mods', f)));
+    const parts = mods.filter(f => f.endsWith('.part')); const def = mods.filter(f => f.endsWith('.defekt'));
+    if (bad.length) issues.push(`${bad.length} defekte Mod-Datei(en): ${bad.slice(0, 3).join(', ')}`);
+    if (parts.length) issues.push(`${parts.length} halbe Downloads`);
+    if (def.length) issues.push(`${def.length} früher als defekt markiert`);
+    if (p.javaPath && !fs.existsSync(p.javaPath)) issues.push('eigener Java-Pfad existiert nicht');
+    if (p.loader && !p.loaderVersion) issues.push('Loader-Version fehlt');
+    let dupes = 0; try { const ids = {}; for (const f of mods.filter(f => /\.jar$/i.test(f))) { const m = modIdOf(path.join(dir, 'mods', f)); if (m?.id) { ids[m.id] = (ids[m.id] || 0) + 1; } } dupes = Object.values(ids).filter(n => n > 1).length; } catch {}
+    if (dupes) issues.push(`${dupes} Mod(s) doppelt`);
+    add('Profile', `${p.name} (${p.version}${p.loader ? ' ' + p.loader : ''})`, issues.length ? (bad.length || dupes || !fs.existsSync(dir) ? 'bad' : 'warn') : 'ok', issues.length ? issues.join(' · ') : `${mods.filter(f => /\.jar$/i.test(f)).length} Mods, alles in Ordnung`, issues.length ? `profile:${p.id}` : null);
+  }
+  // Letzte Fehler aus dem Protokoll
+  let errs = []; try { errs = fs.readFileSync(LAUNCHER_LOG, 'utf8').split('\n').filter(l => /\[(FEHLER|IPC|DOWNLOAD)\]/.test(l)).slice(-5); } catch {}
+  add('Protokoll', 'Letzte Fehler', errs.length ? 'warn' : 'ok', errs.length ? errs.map(l => l.replace(/^\[[^\]]+\] /, '').slice(0, 160)).join('\n') : 'Keine Fehler protokolliert', errs.length ? 'log' : null);
+  return { at: Date.now(), checks, summary: { ok: checks.filter(c => c.status === 'ok').length, warn: checks.filter(c => c.status === 'warn').length, bad: checks.filter(c => c.status === 'bad').length } };
+});
+ipcMain.handle('diag:repair', async (_e, fix) => {
+  if (fix === 'clean') {
+    let freed = 0; const targets = [path.join(DATA_DIR, 'tmp'), path.join(DATA_DIR, 'updates')];
+    for (const p of store.profiles) if (!running.has(p.id)) targets.push(path.join(instanceDir(p), 'logs'), path.join(instanceDir(p), 'crash-reports'));
+    for (const t of targets) { try { if (fs.existsSync(t)) { freed += await dirSize(t); await fsp.rm(t, { recursive: true, force: true }); } } catch {} }
+    try { const L = path.join(DATA_DIR, 'logs'); const old = (await fsp.readdir(L)).filter(f => f.endsWith('.log') && f !== 'launcher.log').sort(); for (const f of old.slice(0, Math.max(0, old.length - 5))) { freed += fs.statSync(path.join(L, f)).size; await fsp.rm(path.join(L, f), { force: true }); } } catch {}
+    return `Aufgeräumt: ${Math.round(freed / 1e6)} MB frei`;
+  }
+  if (fix === 'log') { shell.openPath(LAUNCHER_LOG); return 'Protokoll geöffnet'; }
+  if (String(fix).startsWith('java:')) { const d = path.join(JAVA_DIR, path.basename(fix.slice(5))); await fsp.rm(d, { recursive: true, force: true }); return 'Java entfernt – wird beim nächsten Start neu geladen'; }
+  if (String(fix).startsWith('profile:')) {
+    const p = profileById(fix.slice(8)); if (!p) throw new Error('Profil nicht gefunden');
+    if (running.has(p.id)) throw new Error('Bitte erst Minecraft für dieses Profil beenden');
+    const done = await preflight(p, () => {});
+    const dir = path.join(instanceDir(p), 'mods'); fs.mkdirSync(dir, { recursive: true });
+    for (const f of await fsp.readdir(dir)) if (f.endsWith('.defekt')) { await fsp.rm(path.join(dir, f), { force: true }); done.push(`${f} gelöscht`); }
+    if (p.loader && !p.loaderVersion) { try { p.loaderVersion = p.loader === 'fabric' ? (await getJson(`https://meta.fabricmc.net/v2/versions/loader/${p.version}`))[0]?.loader.version || '' : p.loaderVersion; if (p.loaderVersion) done.push('Loader-Version ergänzt'); } catch {} }
+    // doppelte Mods: ältere Datei entfernen (Zeitmaschine sichert vorher)
+    await tmSnapshotQuiet(p.id, 'Vor der Reparatur');
+    const byId = {}; for (const f of (await fsp.readdir(dir)).filter(f => /\.jar$/i.test(f))) { const m = modIdOf(path.join(dir, f)); if (m?.id) (byId[m.id] ??= []).push({ f, v: m.version || '0', t: fs.statSync(path.join(dir, f)).mtimeMs }); }
+    for (const list of Object.values(byId)) if (list.length > 1) { list.sort((a, b) => cmpVer(b.v, a.v) || b.t - a.t); for (const x of list.slice(1)) { await fsp.rename(path.join(dir, x.f), path.join(dir, x.f + '.disabled')); done.push(`Doppelt: ${x.f} deaktiviert`); } }
+    fs.mkdirSync(instanceDir(p), { recursive: true }); saveStore();
+    logLauncher('HEILUNG', `${p.name}: ${done.join('; ') || 'nichts zu tun'}`);
+    return done.length ? done.join(' · ') : 'Nichts zu reparieren';
+  }
+  if (fix === 'gamefiles') {
+    // Spieldateien einer Version neu laden: Client-Jar + Versions-JSON entfernen → beim nächsten Start frisch
+    let n = 0; const vers = new Set(store.profiles.map(p => p.version));
+    for (const v of vers) { const d = path.join(ROOT, 'versions', v); for (const f of [`${v}.jar`, `${v}.json`]) { try { const full = path.join(d, f); if (fs.existsSync(full)) { await fsp.rm(full, { force: true }); n++; } } catch {} } }
+    return `${n} Spieldateien entfernt – werden beim nächsten Start neu geladen`;
+  }
+  throw new Error('Unbekannte Reparatur');
+});
+ipcMain.handle('diag:report', async () => {
+  let tail = ''; try { tail = fs.readFileSync(LAUNCHER_LOG, 'utf8').split('\n').slice(-80).join('\n'); } catch {}
+  const prof = store.profiles.map(p => `- ${p.name}: ${p.version} ${p.loader || 'vanilla'} ${p.loaderVersion || ''}, ${p.memory || 4} GB`).join('\n');
+  const txt = `LellekClient ${CLIENT_VERSION} · Fenster ${WINDOW_NO}\n${os.type()} ${os.release()} ${process.arch} · Electron ${process.versions.electron} · ${Math.round(os.totalmem() / 1073741824)} GB RAM · ${os.cpus()[0]?.model || ''}\nProfile:\n${prof}\n\nLetzte Protokoll-Zeilen:\n${tail}`;
+  clipboard.writeText(txt); return txt.length;
+});
+
+// ---------- Weiterspielen: zuletzt gespielte Welten und Server ----------
+ipcMain.handle('continue:list', async () => {
+  const out = [], seen = new Set();
+  for (const s of [...(store.sessions || [])].reverse()) {
+    const p = profileById(s.profileId); if (!p) continue;
+    for (const sv of [...(s.servers || [])].reverse()) { const k = `${p.id}|s|${sv}`; if (seen.has(k)) continue; seen.add(k); out.push({ type: 'server', name: sv, target: sv, profileId: p.id, profileName: p.name, version: p.version, at: s.end }); }
+    for (const w of [...(s.worlds || [])].reverse()) {
+      const k = `${p.id}|w|${w}`; if (seen.has(k)) continue; seen.add(k);
+      let folder = w; try { const saves = path.join(instanceDir(p), 'saves'); if (!fs.existsSync(path.join(saves, w))) { const hit = (await fsp.readdir(saves)).find(d => d.toLowerCase() === w.toLowerCase()); if (hit) folder = hit; else continue; } } catch { continue; }
+      out.push({ type: 'world', name: w, target: 'world:' + folder, profileId: p.id, profileName: p.name, version: p.version, at: s.end, direct: mcMinor(p.version) >= 20 || String(p.version).startsWith('26') });
+    }
+    if (out.length >= 6) break;
+  }
+  return out.slice(0, 6);
+});
+
+// ---------- Update-Center: Mod-Updates aller Profile ----------
+ipcMain.handle('updates:all', async (_e, force) => {
+  const res = [];
+  await pool(store.profiles.filter(p => p.loader), 3, async (p) => {
+    try { const r = await handlers['mods:checkUpdates'](null, { profileId: p.id, kind: 'mods', force: !!force }); const ups = r.filter(x => x.status === 'update'); res.push({ profileId: p.id, name: p.name, version: p.version, updates: ups.map(u => ({ file: u.file, newFile: u.newFile })) }); }
+    catch (e) { res.push({ profileId: p.id, name: p.name, version: p.version, updates: [], error: e.message }); }
+  });
+  return res.sort((a, b) => b.updates.length - a.updates.length || a.name.localeCompare(b.name));
+});
+ipcMain.handle('updates:apply', async (_e, profileId) => {
+  const p = profileById(profileId); if (!p) throw new Error('Profil nicht gefunden');
+  if (running.has(p.id)) throw new Error(`„${p.name}“ läuft gerade`);
+  await tmSnapshotQuiet(p.id, 'Vor dem Update-Center');
+  const ups = (await handlers['mods:checkUpdates'](null, { profileId: p.id, kind: 'mods', force: false })).filter(r => r.status === 'update');
+  let ok = 0, fail = 0, i = 0;
+  for (const u of ups) { send('launch:progress', { task: `${p.name}: ${u.newFile}`, percent: ++i / ups.length }); try { await handlers['mods:update'](null, { profileId: p.id, kind: 'mods', file: u.file, url: u.url, newFile: u.newFile, projectId: u.projectId }); ok++; } catch { fail++; } }
+  send('launch:progress', { task: 'Updates fertig', percent: 0 });
+  return { ok, fail };
+});
+
+// ---------- Mod-Infos für die Liste: Name, Symbol, Beschreibung (Modrinth + Datei) ----------
+const META_FILE = path.join(DATA_DIR, 'cache', 'modmeta.json');
+let modMeta = null; function metaLoad() { if (!modMeta) { try { modMeta = JSON.parse(fs.readFileSync(META_FILE, 'utf8')); } catch { modMeta = {}; } } return modMeta; }
+let metaSaveT = null; function metaSave() { clearTimeout(metaSaveT); metaSaveT = setTimeout(() => { try { fs.mkdirSync(path.dirname(META_FILE), { recursive: true }); fs.writeFileSync(META_FILE, JSON.stringify(modMeta)); } catch {} }, 1000); }
+const hashCache = new Map(); // pfad|größe|zeit → sha1
+function localModName(file) {
+  try { const z = new AdmZip(file); const fm = z.getEntry('fabric.mod.json'); if (fm) { const j = JSON.parse(z.readAsText(fm).replace(/[\u0000-\u001f]+/g, ' ')); return { title: j.name || j.id, desc: j.description || '' }; }
+    const mi = z.getEntry('mcmod.info'); if (mi) { const j = JSON.parse(z.readAsText(mi)); const m = Array.isArray(j) ? j[0] : j.modList?.[0]; if (m) return { title: m.name || m.modid, desc: m.description || '' }; }
+    const mt = z.getEntry('META-INF/neoforge.mods.toml') || z.getEntry('META-INF/mods.toml'); if (mt) { const t = z.readAsText(mt); return { title: (/displayName\s*=\s*"([^"]+)"/.exec(t) || [])[1] || (/modId\s*=\s*"([^"]+)"/.exec(t) || [])[1], desc: ((/description\s*=\s*'''([\s\S]*?)'''/.exec(t) || /description\s*=\s*"([^"]+)"/.exec(t) || [])[1] || '').trim() }; }
+  } catch {}
+  return null;
+}
+ipcMain.handle('content:meta', async (_e, { profileId, kind }) => {
+  const dir = kindDir(profileId, kind); const meta = metaLoad(); const out = {};
+  let files = []; try { files = (await fsp.readdir(dir)).filter(f => /\.(jar|zip)(\.disabled)?$/i.test(f)); } catch { return out; }
+  const need = {};
+  for (const f of files) {
+    const full = path.join(dir, f); let st; try { st = fs.statSync(full); } catch { continue; }
+    const k = `${full}|${st.size}|${st.mtimeMs}`; let h = hashCache.get(k);
+    if (!h) { try { h = await sha1(full); hashCache.set(k, h); } catch { continue; } }
+    if (meta[h]) out[f] = meta[h]; else need[h] = f;
+  }
+  const hs = Object.keys(need);
+  if (hs.length) {
+    let known = {}; try { const r = await fetch('https://api.modrinth.com/v2/version_files', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'LellekClient' }, body: JSON.stringify({ hashes: hs, algorithm: 'sha1' }), signal: withTimeout(15000) }); if (r.ok) known = await r.json(); } catch {}
+    const pids = [...new Set(Object.values(known).map(v => v.project_id))]; let projects = {};
+    if (pids.length) { try { for (let i = 0; i < pids.length; i += 100) for (const x of await getJson(`https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(JSON.stringify(pids.slice(i, i + 100)))}`)) projects[x.id] = x; } catch {} }
+    for (const h of hs) {
+      const v = known[h], pr = v && projects[v.project_id];
+      let m = pr ? { title: pr.title, desc: pr.description, icon: pr.icon_url || null, slug: pr.slug, version: v.version_number, source: 'modrinth' } : null;
+      if (!m && kind === 'mods') { const l = localModName(path.join(dir, need[h])); if (l?.title) m = { title: l.title, desc: String(l.desc).slice(0, 200), icon: null, source: 'datei' }; }
+      if (m) { meta[h] = m; out[need[h]] = m; }
+    }
+    metaSave();
+  }
+  return out;
+});
