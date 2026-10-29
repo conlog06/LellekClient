@@ -28,8 +28,22 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
           if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
 
-  windows:
+  test:
     needs: check
+    if: needs.check.outputs.exists != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm test
+
+  windows:
+    needs: [check, test]
     if: needs.check.outputs.exists != 'true'
     runs-on: windows-latest
     steps:
@@ -50,7 +64,7 @@ jobs:
           path: out/*
 
   mac:
-    needs: check
+    needs: [check, test]
     if: needs.check.outputs.exists != 'true'
     runs-on: macos-latest
     env:

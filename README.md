@@ -1,4 +1,4 @@
-# LellekClient 2.1.1 – Quellcode
+# LellekClient 3.0 – Quellcode
 
 Minecraft-Launcher (Electron) für alle Versionen mit Profilen, Mod-Manager, Skins, Server-Hosting und LellekHUD.
 
@@ -39,8 +39,21 @@ npm run dist:portable :: eine einzelne portable .exe → dist\
 | `src/renderer/features.js`, `features.css` | Neue Oberfläche aus 1.8 (Statistik, Befehlspalette, Diagnose, Mod-Sets …) |
 | `src/renderer/features2.js`, `features2.css` | Oberfläche aus 2.0 (Streamer-Modus, Design, Freunde, Server-Plugins, PC-Check, Galerie) |
 | `src/renderer/v25.js`, `v25.css` | Oberfläche 2.5 (Seitenleiste, Optionen, Startseite) und Party, Chat, Profil-Codes, Zeitmaschine, Rückblick, Erfolge, Server-Radar, Autopilot |
+| `src/renderer/v27.js`, `v27.css` | Oberfläche 2.7 (Benachrichtigungen, Update-Center, Diagnose, Weiterspielen) |
+| `src/main/*.js` | Module ab 3.0: `browser.js` (Mod-Browser), `instance.js` (Instanz-Seite, Grafik, Resourcepacks, Einstellungen übertragen), `upgrade.js` (Version upgraden, Mods übertragen), `extras.js` (Galerie, Wrapped, Skins, Backup-Spiegel, Serverliste) |
+| `src/renderer/v3/*.js`, `v3.css`, `fonts/` | Oberfläche 3.0: `core.js` (Bausteine, Navigation), `instance.js`, `discover.js`, `extras.js`, `onboarding.js` |
+| `test/` | Automatische Tests (`npm test`) – laufen auch vor jedem Release |
 | `server/presence-server.js` | Kleiner Server für die Freundesliste (läuft getrennt, nicht im Launcher) |
 | `assets/mods/` | Mitgelieferte LellekHUD-Jars |
+
+## Tests
+
+```
+npm install
+npm test
+```
+
+Prüft u. a. Speichern & Wiederherstellen, Zeitmaschine, Ausstattung, zwei Fenster, Freunde & Party mit zwei Spielern über einen echten Presence-Server, die 3.0-Module und die Oberfläche (Skripte, Preload-API, IPC-Handler).
 
 ## Neu in 2.1.1
 

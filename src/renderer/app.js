@@ -5,7 +5,7 @@ const api = window.lellek;
 const state = { profiles: [], current: null, versions: [], latest: {}, account: null, view: 'play', kind: 'mods', source: 'installed', busy: false, page: 0, lastQuery: '' };
 
 // ---------- Hilfen ----------
-const fmtSize = (b) => b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+const fmtSize = (b) => b > 1e9 ? (b / 1e9).toFixed(2).replace('.', ',') + ' GB' : b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
 const fmtNum = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + ' Mio.' : n >= 1e3 ? Math.round(n / 1e3) + ' Tsd.' : String(n || 0);
 const LOADER_NAMES = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt' };
 const loaderLabel = (p) => p.loader ? `${LOADER_NAMES[p.loader] || p.loader} ${p.loaderVersion}` : 'Vanilla';
@@ -772,6 +772,7 @@ $('#settingsForm').onsubmit = async (e) => {
 
 // ---------- Neuigkeiten ----------
 const NEWS = [
+  { date: '2026-10-29', title: 'LellekClient 3.0', text: 'Das größte Update bisher. Neuer Mod-Browser „Entdecken“ mit Bildern, Kategorien, Versionen und Abhängigkeits-Check passend zur Instanz. Jede Instanz hat eine eigene Seite: Übersicht, Mods, Resourcepacks (sortieren & aktivieren), Welten, Screenshots, Einstellungen und Protokoll. Neu: Version upgraden (Mods werden für die neue Version neu gesucht), Mods und Einstellungen in andere Instanzen übertragen, Grafik-Presets mit einem Klick, Galerie über alle Instanzen, Instanz-Banner, Skin per Spielername, Lellek Wrapped, Pausen-Erinnerung, Backup-Spiegel in OneDrive & Co. und Server-Radar-Favoriten direkt in der Serverliste im Spiel. Dazu ein frisches Design mit neuer Schrift und ein Einrichtungs-Assistent für neue Nutzer.' },
   { date: '2026-10-29', title: 'LellekClient 2.7 – stabiler und aufgeräumter', text: 'Stabiler: Einstellungen werden gesichert und bei Beschädigung automatisch wiederhergestellt, Downloads mit Wiederholung und ohne halbe Dateien, Selbstheilung vor jedem Start (defekte Mods, fehlendes Java), Fehlerprotokoll. Neu: Hilfe & Diagnose mit Reparatur auf Knopfdruck, Weiterspielen (letzte Welt oder Server direkt), Update-Center für alle Profile, Benachrichtigungen. Aufgeräumt: Mods mit Namen, Symbol, Suche und Filter, Server-Seite in Reitern, Profile anheften, Vorlagen einklappbar.' },
   { date: '2026-10-19', title: 'LellekHUD 1.4.2 für 26.3', text: 'LellekHUD gibt es jetzt auch für Minecraft 26.3. Die Vorlage „Lellek 26.3“ bringt es direkt mit, bestehende 26.3-Fabric-Profile bekommen es beim nächsten Start automatisch – der Fabric-Loader wird dafür bei Bedarf aktualisiert.' },
   { date: '2026-10-12', title: 'LellekClient 2.6.1', text: 'Ausstattung wieder entfernen: installierte Mods einfach ausschalten und „Übernehmen“, oder mit „Empfohlene entfernen“ alles Empfohlene auf einmal löschen. Im Profil-Menü (⋯) gibt es „Ausstattung entfernen“. Unter Optionen → Spiel & Leistung lässt sich die automatische Ausstattung neuer Vorlagen abschalten. Vor jedem Entfernen sichert die Zeitmaschine.' },

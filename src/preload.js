@@ -70,6 +70,11 @@ contextBridge.exposeInMainWorld('lellek', {
   cont: { list: invoke('continue:list') },
   updatesAll: { check: invoke('updates:all'), apply: invoke('updates:apply') },
   contentMeta: invoke('content:meta'),
+  // 3.0
+  browser: { tags: invoke('browser:tags'), search: invoke('browser:search'), project: invoke('browser:project'), install: invoke('browser:install') },
+  instance: { overview: invoke('instance:overview'), setBanner: invoke('instance:setBanner'), clearBanner: invoke('instance:clearBanner'), log: invoke('instance:log') },
+  tools: { gfx: invoke('gfx:apply'), optsTransfer: invoke('opts:transfer'), rpList: invoke('rp:list'), rpSave: invoke('rp:save'), upgradeTargets: invoke('upgrade:targets'), upgradePlan: invoke('upgrade:plan'), upgradeRun: invoke('upgrade:run'), modsTransfer: invoke('mods:transfer'), modsIdentify: invoke('mods:identify'), serversSync: invoke('servers:syncAll') },
+  extras: { gallery: invoke('gallery:list'), reveal: invoke('gallery:reveal'), skinFromPlayer: invoke('skins:fromPlayer'), wrapped: invoke('wrapped:get'), pickMirror: invoke('backup:pickMirror'), clearMirror: invoke('backup:clearMirror') },
   onLog: on('launch:log'),
   onProgress: on('launch:progress'),
   onClosed: on('launch:closed'),

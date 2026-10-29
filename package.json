@@ -1,7 +1,7 @@
 {
   "name": "lellekclient",
   "productName": "LellekClient",
-  "version": "2.7.0",
+  "version": "3.0.0",
   "description": "Minecraft-Launcher für Windows und macOS – alle Versionen, Profile, Mod-Manager, Freunde, Server und Skins",
   "main": "src/main.js",
   "author": "Lellek",
@@ -20,7 +20,8 @@
     "start": "electron .",
     "dist": "electron-builder --win nsis",
     "dist:portable": "electron-builder --win portable",
-    "dist:mac": "electron-builder --mac dmg zip --arm64 --x64"
+    "dist:mac": "electron-builder --mac dmg zip --arm64 --x64",
+    "test": "node test/run.js"
   },
   "devDependencies": {
     "electron": "44.3.0",

@@ -4,10 +4,29 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
-## Neu in 2.6.2
+## Neu in 3.0 – das große Update
 
-- **LellekHUD 1.4.2 für 26.3** – in der Vorlage „Lellek 26.3“ und automatisch in allen 26.3-Fabric-Profilen; der Fabric-Loader wird bei Bedarf auf 0.19.5+ angehoben
-- Zoomify ist bei Profilen mit LellekHUD nicht mehr vorausgewählt (LellekHUD hat einen eigenen Zoom)
+**Entdecken – neuer Mod-Browser**
+- Mods, Modpacks, Resourcepacks, Shader und Datapacks von Modrinth mit Bildern, Kategorien und Sortierung
+- Ziel-Instanz wählen: es werden nur passende Projekte gezeigt (Version & Loader), Abhängigkeiten werden geprüft
+- Projektseite mit Galerie, Beschreibung, allen Versionen und Links; Modpacks werden als neue Instanz angelegt
+
+**Instanz-Seiten**
+- Jede Instanz hat eine eigene Seite mit Banner: Übersicht, Mods, Resourcepacks, Welten, Screenshots, Einstellungen, Protokoll
+- Resourcepacks aktivieren und Reihenfolge festlegen, Welten direkt laden, Protokoll mit Suche und Fehler-Filter
+
+**Neue Funktionen**
+- Version upgraden: Kopie für eine neue Minecraft-Version, alle Mods werden neu gesucht
+- Mods übertragen und Einstellungen (Tasten, Grafik, Sound) in andere Instanzen kopieren
+- Grafik-Presets: Leistung, Ausgewogen, Schön – ein Klick
+- Galerie: alle Screenshots aus allen Instanzen, nach Tagen sortiert; als Banner setzen, kopieren, an Discord
+- Skin per Spielername übernehmen
+- Lellek Wrapped: Jahresrückblick als teilbares Bild
+- Pausen-Erinnerung, Backup-Spiegel in einen Cloud-Ordner, Server-Radar-Favoriten automatisch in der Serverliste im Spiel
+
+**Design & Technik**
+- Frisches Design mit neuer Schrift (Inter & Bricolage Grotesque), Einrichtungs-Assistent beim ersten Start
+- Hauptprozess in Module aufgeteilt, automatische Tests laufen vor jedem Release
 
 ## Neu in 2.7 – stabiler und aufgeräumter
 
@@ -27,6 +46,12 @@
 - Mods & Packs: echte Namen, Symbole und Versionen, Suche, Filter (Aktiv/Aus/Updates), Werkzeug-Menü statt Knopfreihe
 - Server hosten in Reitern: Server & Konsole, Einstellungen, Plugins/Mods, Freunde von außen
 - Profile anheften, Vorlagen einklappbar
+
+## Neu in 2.6.2
+
+- **LellekHUD 1.4.2 für 26.3** – in der Vorlage „Lellek 26.3“ und automatisch in allen 26.3-Fabric-Profilen; der Fabric-Loader wird bei Bedarf auf 0.19.5+ angehoben
+- Zoomify ist bei Profilen mit LellekHUD nicht mehr vorausgewählt (LellekHUD hat einen eigenen Zoom)
+
 
 ## Neu in 2.6.1
 

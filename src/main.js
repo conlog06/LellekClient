@@ -3296,3 +3296,24 @@ ipcMain.handle('content:meta', async (_e, { profileId, kind }) => {
   }
   return out;
 });
+
+// =====================================================================
+// LellekClient 3.0 – neue Funktionen als eigene Module (src/main/*)
+// =====================================================================
+const v3 = {
+  app, ipcMain, shell, dialog, clipboard, store, saveStore, saveStoreNow, send, handlers, wrapHandler, logLauncher, notify,
+  profileById, instanceDir, kindDir, backupDir, DATA_DIR, ROOT, SKINS_DIR, running, gameContext,
+  getJson, download, pool, sha1, withTimeout, manifest, mcMinor, cmpVer, nbt, readNbt,
+  pickVersion, pickFile, modrinthVersions, installModrinthVersion, ensureFabricApi, newProfileFrom, neoforgeVersions, tmSnapshotQuiet,
+  lookupPlayer, skinFor, ACHIEVEMENTS, levelInfo,
+  get win() { return win; }, get currentAuth() { return currentAuth; },
+};
+require('./main/index.js')(v3);
+// Welt-Backups zusätzlich in den Spiegel-Ordner kopieren (OneDrive/Google Drive …)
+{
+  const _bw = backupWorlds;
+  backupWorlds = async function (p, log) {
+    await _bw(p, log);
+    try { const d = backupDir(p); const last = (await fsp.readdir(d)).filter(f => f.endsWith('.zip')).sort().pop(); if (last && v3.mirrorBackup) await v3.mirrorBackup(p, path.join(d, last)); } catch {}
+  };
+}
