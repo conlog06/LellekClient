@@ -93,6 +93,8 @@ safe('opts-v3', () => {
   for (const [v, t] of [[0, 'Aus'], [45, 'nach 45 min'], [60, 'nach 1 Stunde'], [90, 'nach 1,5 Stunden'], [120, 'nach 2 Stunden']]) pause.add(new Option(t, v));
   const sync = h('input.sw#optServersSync', { type: 'checkbox', onchange: () => api.settings.save({ serversSync: sync.checked }).then(flashSaved) });
   const fill = h('button.ghost', { onclick: async () => { try { const r = await api.tools.serversSync(); toast(r.added ? `${r.added} Server in ${r.profiles} Instanz(en) eingetragen` : 'Alle Serverlisten sind schon aktuell'); } catch (e) { toast(e.message, true); } } }, 'Jetzt eintragen');
+  const hudAuto = h('input.sw#optHudAuto', { type: 'checkbox', onchange: () => api.settings.save({ hudAuto: hudAuto.checked }).then(flashSaved) });
+  if (game) { const kr = $('#optKitAuto')?.closest('.opt-row'); const row = h('label.opt-row', h('div', h('b', 'LellekHUD bei neuen Vorlagen hinzufügen'), h('span', 'Standard: aus. Pro Instanz jederzeit auf der Instanz-Seite hinzufügen oder entfernen – entfernt bleibt entfernt')), hudAuto); if (kr) kr.after(row); else game.append(row); }
   if (game) {
     const h3 = h('h3', 'Gesund spielen & Serverliste');
     game.append(h3, row('Pausen-Erinnerung', 'Eine kurze Windows-Meldung, wenn du lange am Stück spielst', pause),
@@ -105,7 +107,7 @@ safe('opts-v3', () => {
   if (data) { const anchor = [...data.querySelectorAll('h3')].find(x => /Komplett/.test(x.textContent)); const els = [h('h3', 'Backup-Spiegel (Cloud)'), h('div.opt-row', h('div', h('b', 'Welt-Backups zusätzlich in einen Cloud-Ordner kopieren'), mirrorInfo), mirrorBtns)]; if (anchor) anchor.before(...els); else data.append(...els); }
   if (general) general.append(h('h3', 'Einrichtung'), row('Einrichtung erneut starten', 'Der Willkommens-Assistent: Konto, Design und erste Instanz', h('button.ghost', { onclick: () => openOnboarding(true) }, 'Starten')));
   const _ls = loadSettings;
-  loadSettings = async function (...a) { const r = await _ls.apply(this, a); try { const s = await api.settings.get(); pause.value = String(s.pauseReminder || 0); if (!pause.value) pause.value = '0'; sync.checked = s.serversSync !== false; drawMirror(s.backupMirror); } catch {} return r; };
+  loadSettings = async function (...a) { const r = await _ls.apply(this, a); try { const s = await api.settings.get(); pause.value = String(s.pauseReminder || 0); if (!pause.value) pause.value = '0'; sync.checked = s.serversSync !== false; hudAuto.checked = s.hudAuto === true; drawMirror(s.backupMirror); } catch {} return r; };
 });
 
 // ---------- Was ist neu in 3.0 (einmal für bestehende Nutzer) ----------

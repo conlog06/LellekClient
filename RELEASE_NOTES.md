@@ -4,6 +4,12 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.0.1
+
+- LellekHUD kommt nur noch auf Wunsch: neue Vorlagen ohne HUD, entfernt bleibt entfernt
+- Instanz-Seite: „LellekHUD hinzufügen/entfernen“ (Übersicht und ⋯-Menü)
+- Optionen → Spiel & Leistung: „LellekHUD bei neuen Vorlagen hinzufügen“ (Standard: aus)
+
 ## Neu in 3.0 – das große Update
 
 **Entdecken – neuer Mod-Browser**

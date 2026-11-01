@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld('lellek', {
   updatesAll: { check: invoke('updates:all'), apply: invoke('updates:apply') },
   contentMeta: invoke('content:meta'),
   // 3.0
+  hud: { status: invoke('hud:status'), set: invoke('hud:set') },
   browser: { tags: invoke('browser:tags'), search: invoke('browser:search'), project: invoke('browser:project'), install: invoke('browser:install') },
   instance: { overview: invoke('instance:overview'), setBanner: invoke('instance:setBanner'), clearBanner: invoke('instance:clearBanner'), log: invoke('instance:log') },
   tools: { gfx: invoke('gfx:apply'), optsTransfer: invoke('opts:transfer'), rpList: invoke('rp:list'), rpSave: invoke('rp:save'), upgradeTargets: invoke('upgrade:targets'), upgradePlan: invoke('upgrade:plan'), upgradeRun: invoke('upgrade:run'), modsTransfer: invoke('mods:transfer'), modsIdentify: invoke('mods:identify'), serversSync: invoke('servers:syncAll') },

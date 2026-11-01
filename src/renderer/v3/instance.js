@@ -5,6 +5,7 @@ async function renderInstance() {
   const root = $('#instRoot'); const p = state.profiles.find(x => x.id === V3.inst);
   if (!p) { root.innerHTML = ''; root.append(h('div.empty-state', h('b', 'Instanz nicht gefunden'), h('button.primary', { onclick: () => showView('profiles') }, 'Zu den Profilen'))); return; }
   let ov = null; try { ov = await api.instance.overview(p.id); } catch (e) { toast(e.message, true); }
+  if (ov) { try { ov.hud = await api.hud.status(p.id); } catch {} }
   if (V3.inst !== p.id) return;
   const run = runningSet.has(p.id);
   root.innerHTML = '';
@@ -24,6 +25,7 @@ async function renderInstance() {
     { label: '⏪ Zeitmaschine', run: () => openTimeMachine(p.id) },
     { label: '🔗 Als Code teilen', run: () => openShareCreate(p.id) },
     { label: '🖼️ Banner ändern …', run: () => pickBanner(p) },
+    ...(ov?.hud?.available ? [{ label: ov.hud.state === 'on' ? '🧩 LellekHUD entfernen' : '🧩 LellekHUD hinzufügen', run: () => toggleHud(p, ov.hud.state !== 'on') }] : []),
     '-',
     { label: 'Ordner öffnen', run: () => api.profiles.openFolder(p.id) },
     { label: 'Duplizieren', run: async () => { state.profiles = await api.profiles.duplicate(p.id); toast('Profil kopiert'); } },
@@ -62,6 +64,7 @@ async function instOverview(p, body, ov) {
     t('🧭', 'Mods entdecken', 'Modrinth – passend zu dieser Instanz', () => { V3.disc.target = p.id; showView('discover'); }),
     t('🚀', 'Autopilot', 'RAM, Java und Performance-Mods', () => openAutopilot(p.id)),
     t('⏪', 'Zeitmaschine', 'Früheren Stand wiederherstellen', () => openTimeMachine(p.id)),
+    ov.hud?.available ? t('🧩', ov.hud.state === 'on' ? 'LellekHUD entfernen' : 'LellekHUD hinzufügen', ov.hud.state === 'on' ? `Version ${ov.hud.version || '?'} ist drin – mit einem Klick raus` : 'Optional: FPS, CPS, Keystrokes & Co. – nur wenn du willst', () => toggleHud(p, ov.hud.state !== 'on')) : null,
   ));
   // Letzte Sitzungen
   right.append(h('h3', 'Letzte Sitzungen'));
@@ -269,4 +272,9 @@ function openOptsTransfer(id) {
     try { const r = await api.tools.optsTransfer({ from: p.id, to: ts, parts: ps }); close(); const skip = r.filter(x => x.skippedKeys).map(x => x.name); toast(`Übertragen in ${r.filter(x => x.ok).length} Profil(e)${skip.length ? ` – Tasten bei ${skip.join(', ')} übersprungen (anderes Format)` : ''}`); } catch (e) { toast(e.message, true); }
   } }, 'Übertragen');
   foot.append(h('button.ghost', { onclick: close }, 'Abbrechen'), go);
+}
+
+async function toggleHud(p, on) {
+  if (!on && !confirm(`LellekHUD aus „${p.name}“ entfernen? Es wird beim Start nicht wieder hinzugefügt.`)) return;
+  try { const r = await api.hud.set({ id: p.id, on }); toast(on ? `LellekHUD ${r.version || ''} hinzugefügt` : 'LellekHUD entfernt – kommt nicht wieder'); renderInstance(); } catch (e) { toast(e.message, true); }
 }

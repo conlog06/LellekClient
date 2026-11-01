@@ -3300,6 +3300,53 @@ ipcMain.handle('content:meta', async (_e, { profileId, kind }) => {
 // =====================================================================
 // LellekClient 3.0 – neue Funktionen als eigene Module (src/main/*)
 // =====================================================================
+
+// =====================================================================
+// LellekClient 3.0.1 – LellekHUD nur noch auf Wunsch
+// Beim Start wird eine VORHANDENE (aktive) HUD-Jar aktuell gehalten, aber nie neu hinzugefügt.
+// Neue Vorlagen bekommen sie nur mit der Option „LellekHUD bei neuen Vorlagen“ (Standard: aus).
+// =====================================================================
+const hudJars = async (p) => { try { return (await fsp.readdir(path.join(instanceDir(p), 'mods'))).filter(f => /^LellekHUD-.*\.jar(\.disabled)?$/i.test(f)); } catch { return []; } };
+{
+  const _eh = ensureHud;
+  ensureHud = async function (p, log = () => {}, opts = {}) {
+    if (!opts.add) { const jars = await hudJars(p); if (!jars.some(f => /\.jar$/i.test(f))) return false; }
+    return _eh(p, log);
+  };
+}
+{
+  const kz = KIT.find(i => i.id === 'zoomify'); if (kz) kz.def = (p) => !(store.settings.hudAuto === true && hudFor(p));
+  const _pc = handlers['presets:create'];
+  ipcMain.removeHandler('presets:create');
+  ipcMain.handle('presets:create', async (e, key) => {
+    const r = await _pc(e, key); const p = profileById(r.id);
+    if (p && store.settings.hudAuto === true) { try { r.hudInstalled = await ensureHud(p, () => {}, { add: true }); } catch {} }
+    return r;
+  });
+  const _pl = handlers['presets:list'];
+  ipcMain.removeHandler('presets:list');
+  ipcMain.handle('presets:list', async (e) => {
+    const list = await _pl(e); if (store.settings.hudAuto === true) return list;
+    return list.map(t => ({ ...t, hint: String(t.hint || '').replace(/LellekHUD, /g, '').replace(/ (&|und) LellekHUD/g, '') }));
+  });
+}
+ipcMain.handle('hud:status', async (_e, id) => {
+  const p = profileById(id); if (!p) return { available: false, state: 'none' };
+  const jars = await hudJars(p); const on = jars.find(f => /\.jar$/i.test(f)); const off = jars.find(f => /\.disabled$/i.test(f));
+  return { available: !!hudFor(p), state: on ? 'on' : off ? 'off' : 'none', version: on || off ? hudJarVersion(path.join(instanceDir(p), 'mods', on || off)) : null };
+});
+ipcMain.handle('hud:set', async (_e, { id, on }) => {
+  const p = profileById(id); if (!p) throw new Error('Profil nicht gefunden');
+  if (running.has(p.id)) throw new Error('Bitte erst Minecraft für dieses Profil beenden');
+  if (on && !hudFor(p)) throw new Error(`LellekHUD gibt es für ${p.version}${p.loader ? ' ' + p.loader : ''} nicht`);
+  await tmSnapshotQuiet(p.id, on ? 'Vor LellekHUD hinzufügen' : 'Vor LellekHUD entfernen');
+  const dir = path.join(instanceDir(p), 'mods');
+  for (const f of await hudJars(p)) await fsp.rm(path.join(dir, f), { force: true });
+  if (on && !(await ensureHud(p, (m) => logLauncher('INFO', m), { add: true }))) throw new Error('LellekHUD konnte nicht installiert werden (Fabric-Loader zu alt?)');
+  updateCache.clear(); saveStore();
+  return handlers['hud:status'](null, id);
+});
+
 const v3 = {
   app, ipcMain, shell, dialog, clipboard, store, saveStore, saveStoreNow, send, handlers, wrapHandler, logLauncher, notify,
   profileById, instanceDir, kindDir, backupDir, DATA_DIR, ROOT, SKINS_DIR, running, gameContext,
