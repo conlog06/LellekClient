@@ -31,7 +31,13 @@ async function headUrl(uuid) {
   return out;
 }
 const setHead = (img, uuid) => { headUrl(uuid).then(u => { img.src = u; }); };
-function log(line) { const el = $('#log'); el.textContent += line + '\n'; el.scrollTop = el.scrollHeight; }
+// 3.1: Log ohne Neuaufbau des ganzen Textes (vorher bei jeder Zeile → wurde mit der Zeit immer langsamer); max. 3000 Zeilen, Zeichnen gebündelt
+const logLines = []; let logRaf = 0;
+function log(line) {
+  for (const l of String(line).split('\n')) logLines.push(l);
+  if (logLines.length > 3000) logLines.splice(0, logLines.length - 3000);
+  if (!logRaf) logRaf = requestAnimationFrame(() => { logRaf = 0; const el = $('#log'); if (!el) return; el.textContent = logLines.join('\n') + '\n'; el.scrollTop = el.scrollHeight; });
+}
 function toast(msg, isError) { $('#progressText').textContent = msg; $('#progressText').style.color = isError ? 'var(--danger)' : ''; }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -772,6 +778,7 @@ $('#settingsForm').onsubmit = async (e) => {
 
 // ---------- Neuigkeiten ----------
 const NEWS = [
+  { date: '2026-11-13', title: 'LellekClient 3.1', text: 'Schneller und stabiler: Spieldateien werden nicht mehr bei jedem Start komplett neu geprüft, Welt-Backups laufen nur noch bei Änderungen und frieren den Launcher nicht mehr ein, das Spiel-Log bremst nicht mehr. Neu: Spielmodus (Launcher schläft während des Spiels, Minecraft bekommt höhere Priorität), automatisch optimierte Java-Einstellungen, Startzeit-Messung, Live-RAM-Anzeige, Mod-Detektiv für Absturz-Mods, Instanzen vergleichen, Merkliste im Mod-Browser, Notizen pro Instanz, Screenshot-Sofortkopie und Schnellstart aus der Taskleiste. Der Launcher merkt sich Fenstergröße und -position.' },
   { date: '2026-11-02', title: 'LellekClient 3.0.1', text: 'LellekHUD wird nicht mehr automatisch hinzugefügt. Neue Vorlagen kommen ohne HUD, und wer es aus einer Instanz entfernt, bekommt es beim Start nicht zurück. Hinzufügen oder entfernen geht auf der Instanz-Seite (Übersicht oder ⋯-Menü). Wer es doch bei jeder neuen Vorlage haben will: Optionen → Spiel & Leistung.' },
   { date: '2026-10-29', title: 'LellekClient 3.0', text: 'Das größte Update bisher. Neuer Mod-Browser „Entdecken“ mit Bildern, Kategorien, Versionen und Abhängigkeits-Check passend zur Instanz. Jede Instanz hat eine eigene Seite: Übersicht, Mods, Resourcepacks (sortieren & aktivieren), Welten, Screenshots, Einstellungen und Protokoll. Neu: Version upgraden (Mods werden für die neue Version neu gesucht), Mods und Einstellungen in andere Instanzen übertragen, Grafik-Presets mit einem Klick, Galerie über alle Instanzen, Instanz-Banner, Skin per Spielername, Lellek Wrapped, Pausen-Erinnerung, Backup-Spiegel in OneDrive & Co. und Server-Radar-Favoriten direkt in der Serverliste im Spiel. Dazu ein frisches Design mit neuer Schrift und ein Einrichtungs-Assistent für neue Nutzer.' },
   { date: '2026-10-29', title: 'LellekClient 2.7 – stabiler und aufgeräumter', text: 'Stabiler: Einstellungen werden gesichert und bei Beschädigung automatisch wiederhergestellt, Downloads mit Wiederholung und ohne halbe Dateien, Selbstheilung vor jedem Start (defekte Mods, fehlendes Java), Fehlerprotokoll. Neu: Hilfe & Diagnose mit Reparatur auf Knopfdruck, Weiterspielen (letzte Welt oder Server direkt), Update-Center für alle Profile, Benachrichtigungen. Aufgeräumt: Mods mit Namen, Symbol, Suche und Filter, Server-Seite in Reitern, Profile anheften, Vorlagen einklappbar.' },

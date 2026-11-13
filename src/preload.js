@@ -72,6 +72,9 @@ contextBridge.exposeInMainWorld('lellek', {
   contentMeta: invoke('content:meta'),
   // 3.0
   hud: { status: invoke('hud:status'), set: invoke('hud:set') },
+  v31: { launchStats: invoke('launch:stats'), usage: invoke('perf:usage'), onUsage: on('perf:usage'), onGame: on('perf:game'), onReady: on('perf:ready'), onShot: on('shot:new'),
+    watchList: invoke('watch:list'), watchToggle: invoke('watch:toggle'),
+    bisectStatus: invoke('bisect:status'), bisectStart: invoke('bisect:start'), bisectAnswer: invoke('bisect:answer'), bisectStop: invoke('bisect:stop') },
   browser: { tags: invoke('browser:tags'), search: invoke('browser:search'), project: invoke('browser:project'), install: invoke('browser:install') },
   instance: { overview: invoke('instance:overview'), setBanner: invoke('instance:setBanner'), clearBanner: invoke('instance:clearBanner'), log: invoke('instance:log') },
   tools: { gfx: invoke('gfx:apply'), optsTransfer: invoke('opts:transfer'), rpList: invoke('rp:list'), rpSave: invoke('rp:save'), upgradeTargets: invoke('upgrade:targets'), upgradePlan: invoke('upgrade:plan'), upgradeRun: invoke('upgrade:run'), modsTransfer: invoke('mods:transfer'), modsIdentify: invoke('mods:identify'), serversSync: invoke('servers:syncAll') },

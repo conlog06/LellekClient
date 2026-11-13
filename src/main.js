@@ -44,7 +44,8 @@ process.on('uncaughtException', (e) => { logLauncher('FEHLER', e?.stack || e); t
 process.on('unhandledRejection', (e) => { logLauncher('FEHLER', 'Unbehandelt: ' + (e?.stack || e)); });
 const handlers = {}; const _handle = ipcMain.handle.bind(ipcMain);
 // Jeder Aufruf aus der Oberfläche: Fehler werden protokolliert (und wie gewohnt an die Oberfläche gemeldet)
-ipcMain.handle = (ch, fn) => { handlers[ch] = fn; return _handle(ch, async (...a) => { try { return await fn(...a); } catch (e) { logLauncher('IPC', `${ch}: ${e?.stack || e}`); throw e; } }); };
+const IPC_TRACE = !!process.env.LELLEK_TRACE; const ipcStats = {}; // Diagnose: Aufrufe und Dauer je Kanal
+ipcMain.handle = (ch, fn) => { handlers[ch] = fn; return _handle(ch, async (...a) => { const t = Date.now(); try { return await fn(...a); } catch (e) { logLauncher('IPC', `${ch}: ${e?.stack || e}`); throw e; } finally { const ms = Date.now() - t; const st = ipcStats[ch] ??= { n: 0, ms: 0, max: 0 }; st.n++; st.ms += ms; st.max = Math.max(st.max, ms); if (IPC_TRACE) process.stderr.write(`[ipc] ${ch} ${ms}ms\n`); } }); };
 const store = loadStore();
 if (WINDOW_NO > 1) syncFromMainStore(store);
 /** Weiteres Fenster: Profile, Favoriten, Konten und Einstellungen vom Hauptfenster übernehmen (eigene Konto-Wahl, Freunde, Chat bleiben getrennt) */
@@ -99,9 +100,12 @@ function send(channel, payload) { if (win && !win.isDestroyed()) win.webContents
 
 // ---------- Fenster ----------
 function createWindow() {
+  // 3.1: Größe/Position merken, erst zeigen wenn fertig gezeichnet (kein grauer Blitz beim Start)
+  const b = store.settings.winBounds || {}; const { screen } = require('electron');
+  const onScreen = b.width && screen.getAllDisplays().some(d => b.x >= d.bounds.x - 50 && b.y >= d.bounds.y - 50 && b.x < d.bounds.x + d.bounds.width - 100 && b.y < d.bounds.y + d.bounds.height - 100);
   win = new BrowserWindow({
-    width: 1180, height: 760, minWidth: 980, minHeight: 640,
-    backgroundColor: '#22262E',
+    width: b.width || 1180, height: b.height || 760, minWidth: 980, minHeight: 640, ...(onScreen ? { x: b.x, y: b.y } : {}), show: false,
+    backgroundColor: '#16110A',
     title: WINDOW_NO > 1 ? `LellekClient – Fenster ${WINDOW_NO}` : 'LellekClient',
     icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
@@ -110,6 +114,10 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.on('render-process-gone', (_e, d) => { logLauncher('FEHLER', `Oberfläche abgestürzt (${d.reason}) – wird neu geladen`); if (d.reason !== 'clean-exit') setTimeout(() => { try { if (!win.isDestroyed()) win.reload(); } catch {} }, 500); });
   win.on('unresponsive', () => logLauncher('WARNUNG', 'Oberfläche reagiert nicht'));
+  let shown = false; const show = () => { if (shown || win.isDestroyed()) return; shown = true; if (b.max) win.maximize(); win.show(); };
+  win.once('ready-to-show', show); setTimeout(show, 4000); // Sicherheitsnetz
+  let bt = null; const keep = () => { clearTimeout(bt); bt = setTimeout(() => { if (win.isDestroyed() || win.isMinimized()) return; const max = win.isMaximized(); store.settings.winBounds = max ? { ...(store.settings.winBounds || {}), max: true } : { ...win.getNormalBounds(), max: false }; saveStore(); }, 600); };
+  win.on('resize', keep); win.on('move', keep); win.on('maximize', keep); win.on('unmaximize', keep);
 }
 app.whenReady().then(async () => {
   for (const d of [ROOT, INSTANCES, JAVA_DIR]) fs.mkdirSync(d, { recursive: true });
@@ -1470,7 +1478,17 @@ function openLogWindow(p) {
   logWindows.set(p.id, w);
   return w;
 }
-const sendLog = (p, channel, payload) => { payload = maskPayload(payload); send(channel, { profileId: p.id, ...payload }); const w = logWindows.get(p.id); if (w && !w.isDestroyed()) w.webContents.send(channel, { profileId: p.id, ...payload }); };
+const deliverLog = (p, channel, payload) => { send(channel, { profileId: p.id, ...payload }); const w = logWindows.get(p.id); if (w && !w.isDestroyed()) w.webContents.send(channel, { profileId: p.id, ...payload }); };
+// 3.1: Log-Zeilen gebündelt (alle 150 ms) und Fortschritt gedrosselt – vorher eine IPC-Nachricht pro Zeile bzw. pro Asset (tausende beim Start)
+const logBuf = new Map();
+function flushLog(p) { const b = logBuf.get(p.id); if (!b) return; clearTimeout(b.t); b.t = null; if (b.lines.length) { const lines = b.lines.splice(0); deliverLog(p, 'launch:log', { line: lines.join('\n'), lines }); } if (b.prog) { deliverLog(p, 'launch:progress', b.prog); b.prog = null; } }
+const sendLog = (p, channel, payload) => {
+  payload = maskPayload(payload);
+  let b = logBuf.get(p.id); if (!b) logBuf.set(p.id, b = { lines: [], prog: null, t: null });
+  if (channel === 'launch:log') { b.lines.push(payload.line); if (b.lines.length > 400) flushLog(p); else if (!b.t) b.t = setTimeout(() => flushLog(p), 150); return; }
+  if (channel === 'launch:progress') { b.prog = payload; if (!b.t) b.t = setTimeout(() => flushLog(p), 150); return; }
+  flushLog(p); deliverLog(p, channel, payload);
+};
 ipcMain.handle('launch', async (_e, profileId, server) => {
   const p = store.profiles.find(x => x.id === profileId);
   if (!server && p?.autoServer) server = p.autoServer;
@@ -1510,7 +1528,7 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
     version: { number: p.version, type: (store.settings.ui?.menuBrand || '').trim().slice(0, 40) || `${CLIENT_NAME} ${CLIENT_VERSION}` }, // erscheint links unten im Hauptmenü
     memory: { max: `${p.memory || store.settings.memory || 4}G`, min: '1G' },
     javaPath,
-    customArgs: (p.jvmArgs || '').split(/\s+/).filter(Boolean),
+    customArgs: jvmArgsFor(p, javaMajor, log),
     window: { width: p.width || 854, height: p.height || 480, fullscreen: !!p.fullscreen },
   };
   if (server && String(server).startsWith('world:')) { // Weiterspielen: Einzelspieler-Welt direkt laden (ab 1.20)
@@ -3347,8 +3365,103 @@ ipcMain.handle('hud:set', async (_e, { id, on }) => {
   return handlers['hud:status'](null, id);
 });
 
+
+// =====================================================================
+// LellekClient 3.1 – Spielstart schneller, Launcher sparsamer, stabiler
+// =====================================================================
+// 1) Prüfsummen merken: minecraft-launcher-core hasht sonst bei JEDEM Start alle ~4000 Assets (hunderte MB)
+const sumFile = path.join(DATA_DIR, 'cache', 'checksums.json');
+let sumCache = {}; try { sumCache = JSON.parse(fs.readFileSync(sumFile, 'utf8')) || {}; } catch {}
+let sumTimer = null, sumDirty = false, sumActive = 0; const sumWait = [];
+const saveSums = () => { clearTimeout(sumTimer); sumTimer = setTimeout(async () => { if (!sumDirty) return; sumDirty = false; try { await fsp.mkdir(path.dirname(sumFile), { recursive: true }); await fsp.writeFile(sumFile + '.tmp', JSON.stringify(sumCache)); await fsp.rename(sumFile + '.tmp', sumFile); } catch {} }, 2000); };
+async function cachedSha1(file) {
+  const st = await fsp.stat(file); const k = path.relative(ROOT, file).split(path.sep).join('/'); const c = sumCache[k], mt = Math.floor(st.mtimeMs);
+  if (c && c[0] === st.size && c[1] === mt) return c[2];
+  while (sumActive >= 24) await new Promise(r => sumWait.push(r)); // nicht tausende Dateien gleichzeitig öffnen
+  sumActive++; try { const h = await sha1(file); sumCache[k] = [st.size, mt, h]; sumDirty = true; saveSums(); return h; } finally { sumActive--; sumWait.shift()?.(); }
+}
+try {
+  const MCLCHandler = require('minecraft-launcher-core/components/handler');
+  MCLCHandler.prototype.checkSum = async function (hash, file) { try { return (await cachedSha1(file)) === hash; } catch { return false; } };
+} catch (e) { logLauncher('WARNUNG', 'Prüfsummen-Cache nicht aktiv: ' + e.message); }
+
+// 2) Versionsdaten von der Platte, Manifest offline aus dem Cache
+{
+  const mfFile = path.join(DATA_DIR, 'cache', 'version_manifest.json');
+  const _mf = manifest;
+  manifest = async function () {
+    try { const m = await _mf(); fsp.mkdir(path.dirname(mfFile), { recursive: true }).then(() => fsp.writeFile(mfFile, JSON.stringify(m))).catch(() => {}); return m; }
+    catch (e) { try { manifestCache = JSON.parse(await fsp.readFile(mfFile, 'utf8')); logLauncher('INFO', 'Offline: Versionsliste aus dem Cache'); return manifestCache; } catch { throw e; } }
+  };
+  const _vj = versionJson;
+  versionJson = async function (id) {
+    const f = path.join(ROOT, 'versions', id, `${id}.json`);
+    try { const j = JSON.parse(await fsp.readFile(f, 'utf8')); if (j && j.id === id && j.downloads && j.libraries) return j; } catch {}
+    return _vj(id);
+  };
+}
+
+// 3) Welt-Backups: nur wenn sich seit dem letzten Backup etwas geändert hat, und ohne den Launcher einzufrieren
+async function worldChangedAt(dir) {
+  let t = 0; for (const f of ['level.dat', 'level.dat_old', 'session.lock']) { try { t = Math.max(t, (await fsp.stat(path.join(dir, f))).mtimeMs); } catch {} }
+  return t;
+}
+backupWorlds = async function (p, log = () => {}) {
+  const saves = path.join(instanceDir(p), 'saves');
+  if (!fs.existsSync(saves) || fs.lstatSync(saves).isSymbolicLink()) return;
+  const worlds = (await fsp.readdir(saves, { withFileTypes: true })).filter(e => e.isDirectory() && fs.existsSync(path.join(saves, e.name, 'level.dat')));
+  if (!worlds.length) return;
+  const dir = backupDir(p);
+  const zips = (await fsp.readdir(dir)).filter(f => f.endsWith('.zip')).sort();
+  if (zips.length) {
+    const last = (await fsp.stat(path.join(dir, zips[zips.length - 1]))).mtimeMs; let newest = 0;
+    for (const w of worlds) newest = Math.max(newest, await worldChangedAt(path.join(saves, w.name)));
+    if (newest && newest <= last) { log('Welt-Backup: nichts geändert seit dem letzten Backup – übersprungen'); return; }
+  }
+  const t0 = Date.now(); const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); // mit Sekunden – vorher überschrieben sich zwei Backups in derselben Minute
+  const zip = new AdmZip(); for (const w of worlds) await zip.addLocalFolderPromise(path.join(saves, w.name), { zipPath: w.name, filter: (f) => !/session\.lock$/.test(f) });
+  const out = path.join(dir, `${stamp}.zip`); await zip.writeZipPromise(out + '.tmp', { overwrite: true }); await fsp.rename(out + '.tmp', out);
+  const old = (await fsp.readdir(dir)).filter(f => f.endsWith('.zip')).sort();
+  for (const f of old.slice(0, Math.max(0, old.length - 5))) await fsp.rm(path.join(dir, f), { force: true });
+  log(`Welt-Backup: ${worlds.length} Welt(en) → ${path.basename(out)} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+};
+
+// 4) Optimierte Java-Argumente (G1, kurze Pausen) – nur wenn der Nutzer selbst keinen GC gewählt hat
+function jvmArgsFor(p, javaMajor, log = () => {}) {
+  const own = (p.jvmArgs || '').split(/\s+/).filter(Boolean);
+  if (store.settings.optimizeJvm === false || own.some(a => /^-XX:\+Use\w+GC$/.test(a))) return own;
+  const base = PERF_JVM.split(/\s+/).filter(a => a && !(javaMajor < 9 && /G1RSetUpdatingPauseTimePercent/.test(a)));
+  log(`Java-Optimierung aktiv (G1-Garbage-Collector, kurze Pausen)${javaMajor >= 17 ? '' : ' – Java ' + javaMajor}`);
+  return [...base, ...own.filter(a => !base.includes(a))];
+}
+
+globalThis.__lellekTest = { jvmArgsFor, cachedSha1 };
+// 5) Spielstart: Zeiten messen, Priorität setzen, Launcher schlafen legen
+const launchTimes = new Map(); // profileId → { t0, steps: [[name, ms]] }
+wrapHandler('launch', async (orig, e, profileId, server) => {
+  const t0 = Date.now(); launchTimes.set(profileId, { t0, steps: [], firstLine: null });
+  const r = await orig(e, profileId, server);
+  const proc = running.get(profileId); const p = profileById(profileId);
+  if (proc?.pid) {
+    const prio = store.settings.gamePriority || 'above';
+    try { if (prio !== 'normal') os.setPriority(proc.pid, prio === 'high' ? os.constants.priority.PRIORITY_HIGH : os.constants.priority.PRIORITY_ABOVE_NORMAL); } catch (err) { logLauncher('INFO', 'Priorität nicht gesetzt: ' + err.message); }
+    const lt = launchTimes.get(profileId); if (lt) lt.spawned = Date.now() - t0;
+    if (p) { p.lastLaunch = { prepMs: Date.now() - t0, at: Date.now() }; saveStore(); }
+  }
+  send('perf:game', { running: running.size });
+  if (store.settings.gameMode !== false && running.size) { try { win?.webContents.setBackgroundThrottling(true); } catch {} }
+  return r;
+});
+// erstes Fenster / Hauptmenü erkennen, um die Startzeit bis „spielbereit“ zu messen
+{
+  const _tg = trackGameLog;
+  trackGameLog = function (p, line) {
+    try { const lt = launchTimes.get(p.id); if (lt && !lt.ready && /Sound engine started/.test(line)) { lt.ready = Date.now() - lt.t0; p.lastLaunch = { ...(p.lastLaunch || {}), readyMs: lt.ready, at: Date.now() }; (p.launchHistory ??= []).push({ at: Date.now(), prepMs: lt.spawned || 0, readyMs: lt.ready }); p.launchHistory = p.launchHistory.slice(-10); saveStore(); send('perf:ready', { profileId: p.id, ms: lt.ready }); } } catch {}
+    return _tg(p, line);
+  };
+}
 const v3 = {
-  app, ipcMain, shell, dialog, clipboard, store, saveStore, saveStoreNow, send, handlers, wrapHandler, logLauncher, notify,
+  app, ipcMain, shell, dialog, clipboard, JAVA_DIR, INSTANCES, store, saveStore, saveStoreNow, send, handlers, wrapHandler, logLauncher, notify,
   profileById, instanceDir, kindDir, backupDir, DATA_DIR, ROOT, SKINS_DIR, running, gameContext,
   getJson, download, pool, sha1, withTimeout, manifest, mcMinor, cmpVer, nbt, readNbt,
   pickVersion, pickFile, modrinthVersions, installModrinthVersion, ensureFabricApi, newProfileFrom, neoforgeVersions, tmSnapshotQuiet,

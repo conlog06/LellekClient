@@ -15,7 +15,7 @@ async function renderInstance() {
   head.append(h('button.inst-back', { onclick: () => showView('profiles') }, '← Profile'));
   head.append(h('div.inst-ic', profIcon(p)));
   const pills = h('div.inst-meta', h('span.pill', p.version), h('span.pill', loaderName(p.loader) + (p.loaderVersion ? ' ' + p.loaderVersion : '')), h('span.pill', `${p.memory || 4} GB RAM`));
-  if (run) pills.append(h('span.pill.ok', '● läuft'));
+  if (run) { pills.append(h('span.pill.ok', '● läuft')); const u = V31.usage[p.id]; pills.append(h('span.pill#instUsage', u ? usageText(u) : 'RAM …')); }
   head.append(h('div.inst-title', h('h1.inst-name', p.name), pills, h('div.inst-sub', `${fmtH(p.playtimeMs)} gespielt${p.lastPlayed ? ' · zuletzt ' + ago(p.lastPlayed) : ''}${ov ? ` · ${ov.counts.mods} Mods · ${ov.counts.worlds} Welten` : ''}`)));
   const more = h('button.ghost.icon-btn', { title: 'Mehr' }, '⋯');
   more.onclick = () => popMenu(more, [
@@ -26,6 +26,10 @@ async function renderInstance() {
     { label: '🔗 Als Code teilen', run: () => openShareCreate(p.id) },
     { label: '🖼️ Banner ändern …', run: () => pickBanner(p) },
     ...(ov?.hud?.available ? [{ label: ov.hud.state === 'on' ? '🧩 LellekHUD entfernen' : '🧩 LellekHUD hinzufügen', run: () => toggleHud(p, ov.hud.state !== 'on') }] : []),
+    '-',
+    ...(p.loader ? [{ label: '🔍 Mod-Detektiv (Fehlersuche)', run: () => openBisect(p.id) }, { label: '⚖️ Mit anderer Instanz vergleichen', run: () => openCompare(p.id) }] : []),
+    { label: '📦 Als .mrpack exportieren', run: async () => { try { const f = await api.profiles.exportMrpack(p.id); if (f) toast('Modpack exportiert'); } catch (e) { toast(e.message, true); } } },
+    ...(navigator.userAgent.includes('Windows') ? [{ label: '🖥️ Desktop-Verknüpfung', run: async () => { try { await api.shortcut(p.id); toast('Verknüpfung auf dem Desktop angelegt'); } catch (e) { toast(e.message, true); } } }] : []),
     '-',
     { label: 'Ordner öffnen', run: () => api.profiles.openFolder(p.id) },
     { label: 'Duplizieren', run: async () => { state.profiles = await api.profiles.duplicate(p.id); toast('Profil kopiert'); } },
@@ -38,6 +42,7 @@ async function renderInstance() {
   const cnt = { mods: ov?.counts.mods, packs: ov?.counts.resourcepacks, worlds: ov?.counts.worlds, shots: ov?.counts.screenshots };
   for (const [k, t] of INST_TABS) tabs.append(h('button' + (V3.instTab === k ? '.active' : ''), { onclick: () => { V3.instTab = k; renderInstance(); } }, t, cnt[k] ? h('span.cnt', String(cnt[k])) : null));
   root.append(tabs);
+  if (p.loader) { try { const bs = await api.v31.bisectStatus(p.id); if (bs) root.append(bisectBanner(p, bs)); } catch {} }
   const body = h('div.inst-body'); root.append(body);
   const fn = { overview: instOverview, mods: instMods, packs: instPacks, worlds: instWorlds, shots: instShots, settings: instSettings, log: instLog }[V3.instTab] || instOverview;
   try { await fn(p, body, ov); } catch (e) { body.append(h('p.danger', e.message)); }
@@ -55,6 +60,7 @@ async function instOverview(p, body, ov) {
   const g = (key, t, d) => h('button.ghost', { onclick: async () => { try { await api.tools.gfx({ id: p.id, preset: key }); toast(`Grafik „${t}“ gesetzt – gilt beim nächsten Start`); } catch (e) { toast(e.message, true); } } }, h('b', t), h('span', d));
   left.append(h('div.gfx-row', g('leistung', '⚡ Leistung', 'Sichtweite 8, schnelle Grafik'), g('ausgewogen', '⚖️ Ausgewogen', 'Sichtweite 12, schön & flüssig'), g('schoen', '✨ Schön', 'Sichtweite 18, alle Effekte')));
   // Werkzeuge
+  left.append(startTimeCard(p));
   left.append(h('h3', 'Werkzeuge'));
   const t = (i, title, d, fn) => h('button.act-tile', { onclick: fn }, h('i', i), h('b', title), h('span', d));
   left.append(h('div.inst-actions-grid',
@@ -64,8 +70,11 @@ async function instOverview(p, body, ov) {
     t('🧭', 'Mods entdecken', 'Modrinth – passend zu dieser Instanz', () => { V3.disc.target = p.id; showView('discover'); }),
     t('🚀', 'Autopilot', 'RAM, Java und Performance-Mods', () => openAutopilot(p.id)),
     t('⏪', 'Zeitmaschine', 'Früheren Stand wiederherstellen', () => openTimeMachine(p.id)),
+    p.loader ? t('🔍', 'Mod-Detektiv', 'Absturz durch eine Mod? Findet sie in wenigen Starts', () => openBisect(p.id)) : null,
+    p.loader ? t('⚖️', 'Instanz vergleichen', 'Welche Mods fehlen hier, welche dort?', () => openCompare(p.id)) : null,
     ov.hud?.available ? t('🧩', ov.hud.state === 'on' ? 'LellekHUD entfernen' : 'LellekHUD hinzufügen', ov.hud.state === 'on' ? `Version ${ov.hud.version || '?'} ist drin – mit einem Klick raus` : 'Optional: FPS, CPS, Keystrokes & Co. – nur wenn du willst', () => toggleHud(p, ov.hud.state !== 'on')) : null,
   ));
+  right.append(notesCard(p));
   // Letzte Sitzungen
   right.append(h('h3', 'Letzte Sitzungen'));
   const sl = h('div.sess-list');
@@ -82,7 +91,9 @@ async function instMods(p, body) {
   const q = h('input.input', { placeholder: 'Mods durchsuchen …' });
   const list = h('div.inst-mods');
   const upd = h('button.ghost', 'Updates prüfen');
-  body.append(h('div.inst-bar', q, h('span.grow'), upd, h('button.ghost', { onclick: () => openBundle(p) }, '🎒 Ausstattung'), h('button.primary', { onclick: () => { V3.disc.target = p.id; showView('discover'); } }, '+ Mods hinzufügen')), list);
+  const extraBar = h('div.inst-bar.inst-bar2');
+  body.append(h('div.inst-bar', q, h('span.grow'), upd, h('button.ghost', { onclick: () => openBundle(p) }, '🎒 Ausstattung'), h('button.primary', { onclick: () => { V3.disc.target = p.id; showView('discover'); } }, '+ Mods hinzufügen')), extraBar, list);
+  modExtras(p, extraBar, () => draw());
   const draw = async () => {
     const files = await api.content.list({ profileId: p.id, kind: 'mods' });
     let meta = {}; try { meta = await api.contentMeta({ profileId: p.id, kind: 'mods' }); } catch {}

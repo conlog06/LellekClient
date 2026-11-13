@@ -5,7 +5,7 @@ async function openOnboarding(force) {
   if (!force && (ui.onboarded || $('#v25Dialog')?.open)) return;
   let step = 0, preset = null, presets = [], created = null;
   const { d, body, foot, close } = v25Dialog('ob-dlg');
-  d.onclose = () => { d.onclose = null; setUi({ onboarded: true }); LS.set('seen30', true); };
+  d.onclose = () => { d.onclose = null; setUi({ onboarded: true }); LS.set('seen30', true); LS.set('seen31', true); };
   const draw = async () => {
     body.innerHTML = ''; foot.innerHTML = ''; foot.classList.add('hidden');
     const side = h('div.ob-side', h('img', { src: 'logo.png', alt: '' }));

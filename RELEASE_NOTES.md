@@ -4,6 +4,33 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.1 – schneller, sparsamer, stabiler
+
+**Spielstart & Leistung**
+- Spieldateien (Assets, Bibliotheken) werden nur noch beim ersten Mal per Prüfsumme geprüft – danach gemerkt. Vorher: bei jedem Start alle ~4000 Dateien
+- Welt-Backups nur, wenn sich eine Welt seit dem letzten Backup geändert hat, und ohne den Launcher einzufrieren (zwei Backups in derselben Minute überschreiben sich nicht mehr)
+- Spiel-Log gebündelt statt Zeile für Zeile – der Launcher wurde bei langen Sessions vorher immer langsamer
+- Versionsdaten von der Platte statt jedes Mal aus dem Netz; Versionsliste auch offline
+- Raster-Animation der Startseite läuft über die Grafikkarte (vorher Neuzeichnen jedes Frame), pausiert im Hintergrund
+- Skin-Bibliothek: statische Vorschaubilder statt einer 3D-Ansicht pro Skin
+
+**Neu**
+- Spielmodus: Launcher schläft, solange Minecraft läuft; Minecraft bekommt höhere Priorität
+- Java automatisch optimieren (G1, kurze Pausen) – eigene Java-Argumente haben Vorrang
+- Startzeit-Messung pro Instanz (Klick bis Hauptmenü) mit Verlauf und „bereit in …“-Meldung
+- Live-RAM-Anzeige, während Minecraft läuft
+- Mod-Detektiv: findet die Mod hinter einem Absturz per Halbierung, abhängige Mods werden mit abgeschaltet
+- Instanzen vergleichen und fehlende Mods übernehmen
+- Merkliste im Mod-Browser
+- Notizen pro Instanz
+- Screenshot-Meldung und optional automatisch in die Zwischenablage
+- Schnellstart der zuletzt gespielten Instanzen aus der Windows-Taskleiste
+- Instanz-Seite: Mod-Sets, Konflikt-Check (doppelte Mods mit einem Klick lösen), .mrpack-Export, Desktop-Verknüpfung
+
+**Behoben**
+- Grauer Fensterblitz beim Start; Fenstergröße und -position werden gemerkt
+- „Was ist neu“-Fenster legt sich nicht mehr über andere Dialoge
+
 ## Neu in 3.0.1
 
 - LellekHUD kommt nur noch auf Wunsch: neue Vorlagen ohne HUD, entfernt bleibt entfernt

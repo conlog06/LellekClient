@@ -112,14 +112,16 @@ safe('opts-v3', () => {
 
 // ---------- Was ist neu in 3.0 (einmal für bestehende Nutzer) ----------
 async function whatsNew30() {
-  const s = await api.settings.get(); if (!/^3\./.test(s.clientVersion || '') || LS.get('seen30', false)) return;
+  const s = await api.settings.get(); const ver = s.clientVersion || ''; const key = 'seen' + ver.split('.').slice(0, 2).join('');
+  if (!/^3\.1/.test(ver) || LS.get(key, false)) return;
   if (!state.profiles.length) return; // neue Nutzer bekommen die Einrichtung
-  LS.set('seen30', true);
+  if ($('#v25Dialog')?.open) { setTimeout(() => whatsNew30().catch(() => {}), 4000); return; } // nicht über andere Fenster legen
+  LS.set(key, true);
   const { body, foot, close } = v25Dialog('whatsnew');
-  body.append(h('h2', `LellekClient ${s.clientVersion}`), h('p.muted', 'Das größte Update bisher – neu gebaut, schneller und übersichtlicher:'));
+  body.append(h('h2', `LellekClient ${ver}`), h('p.muted', 'Schneller starten, flüssiger spielen – und neue Werkzeuge:'));
   const g = h('div.wn-grid');
-  for (const [i, t, d] of [['🧭', 'Entdecken', 'Neuer Mod-Browser: Modrinth mit Bildern, Kategorien, Versionen und Abhängigkeiten – passend zur gewählten Instanz.'], ['🗂️', 'Instanz-Seiten', 'Jedes Profil hat jetzt eine eigene Seite: Mods, Resourcepacks, Welten, Screenshots, Einstellungen und Protokoll.'], ['⬆️', 'Version upgraden', 'Instanz auf eine neue Minecraft-Version heben – alle Mods werden automatisch neu gesucht.'], ['⌨️', 'Übertragen', 'Tastenbelegung, Grafik und Mods mit einem Klick in andere Instanzen kopieren.'], ['🖼️', 'Galerie & Banner', 'Alle Screenshots an einem Ort – und dein Lieblingsbild als Banner der Instanz.'], ['🎁', 'Lellek Wrapped', 'Dein Jahresrückblick als teilbares Bild.']]) g.append(h('div.wn', h('b', `${i} ${t}`), h('span', d)));
+  for (const [i, t, d] of [['⚡', 'Schnellerer Spielstart', 'Geprüfte Spieldateien werden gemerkt, Welt-Backups nur noch bei Änderungen – ab dem zweiten Start spürbar schneller.'], ['🎮', 'Spielmodus', 'Während Minecraft läuft, schläft der Launcher. Minecraft bekommt höhere Priorität und optimierte Java-Einstellungen.'], ['🔍', 'Mod-Detektiv', 'Absturz durch eine Mod? Findet die Schuldige in wenigen Starts.'], ['⚖️', 'Instanzen vergleichen', 'Sieh, welche Mods wo fehlen, und übernimm sie mit einem Klick.'], ['⏱️', 'Startzeit & Live-RAM', 'Wie lange bis zum Hauptmenü, wie viel RAM Minecraft gerade nutzt.'], ['♥', 'Merkliste & mehr', 'Mods vormerken, Notizen pro Instanz, Screenshot-Sofortkopie, Schnellstart aus der Taskleiste.']]) g.append(h('div.wn', h('b', `${i} ${t}`), h('span', d)));
   body.append(g);
-  foot.append(h('button.ghost', { onclick: () => { close(); showView('discover'); } }, 'Mods entdecken'), h('button.primary', { onclick: () => { close(); if (state.current) openInstance(state.current); } }, 'Instanz-Seite ansehen'));
+  foot.append(h('button.ghost', { onclick: () => { close(); showView('settings'); setTimeout(() => $('#optNav [data-cat="game"]')?.click(), 100); } }, 'Leistungs-Optionen'), h('button.primary', { onclick: () => { close(); if (state.current) openInstance(state.current); } }, 'Instanz-Seite ansehen'));
 }
 setTimeout(() => whatsNew30().catch(() => {}), 2600);
