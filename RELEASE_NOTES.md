@@ -4,6 +4,10 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.2.1
+
+- Behoben: Während Minecraft lief, blieben die anderen Seiten im Launcher leer
+
 ## Neu in 3.2 – Log-Fenster und Benachrichtigungen
 
 **Neues Log-Fenster**

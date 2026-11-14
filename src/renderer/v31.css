@@ -7,7 +7,8 @@
 @keyframes hgMove { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 64px, 0); } }
 body.no-grid .hg-plane, body.perf .hg-plane { display: none; }
 /* Pause, wenn der Launcher nicht sichtbar ist oder Minecraft läuft */
-body.idle-pause *, body.idle-pause *::before, body.idle-pause *::after { animation-play-state: paused !important; }
+/* nur Dauer-Animationen pausieren – Einblend-Animationen der Seiten müssen durchlaufen, sonst bleiben sie unsichtbar */
+body.idle-pause .hg-tiles, body.idle-pause .launch:disabled, body.idle-pause .party-chip.go, body.idle-pause .dcard.skel { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) { .hg-tiles { animation: none; } }
 
 /* Startzeit, Notizen */
