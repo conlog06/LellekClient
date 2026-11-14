@@ -53,7 +53,7 @@ module.exports = function extras(ctx) {
     for (const id of running.keys()) {
       const since = gameContext.get(id)?.since; if (!since) continue;
       const played = (Date.now() - since) / 60000, n = reminded.get(id) || 0;
-      if (played >= min * (n + 1)) { reminded.set(id, n + 1); const h = Math.floor(played / 60), m = Math.round(played % 60); notify('Zeit für eine kurze Pause?', `Du spielst seit ${h ? h + ' h ' : ''}${m} min. Kurz aufstehen, trinken, Augen entspannen.`); }
+      if (played >= min * (n + 1)) { reminded.set(id, n + 1); const h = Math.floor(played / 60), m = Math.round(played % 60); notify('Zeit für eine kurze Pause?', `Du spielst seit ${h ? h + ' h ' : ''}${m} min. Kurz aufstehen, trinken, Augen entspannen.`, 'pause'); }
     }
     for (const id of [...reminded.keys()]) if (!running.has(id)) reminded.delete(id);
   }, 60000);

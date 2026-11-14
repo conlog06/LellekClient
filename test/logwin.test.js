@@ -1,0 +1,21 @@
+// Log-Fenster: bekannte Meldungen werden richtig erkannt, Zeilen richtig zerlegt
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'logwin.js'), 'utf8');
+const take = (start, end) => src.slice(src.indexOf(start), src.indexOf(end, src.indexOf(start)));
+const ctx = {}; vm.createContext(ctx);
+vm.runInContext(take('const KNOWN = [', '// ---------- Zeilen zerlegen') + take('const LINE =', 'const S = {') + '\nthis.matchKnown = matchKnown; this.LINE = LINE; this.lvOf = lvOf; this.CONT = CONT;', ctx);
+let fail = 0; const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
+const k = (s) => ctx.matchKnown(s)?.id;
+ok(k('Failed to verify signature on property Property[name=textures, value=eyJ..., signature=]') === 'sig', 'Skin-Signatur → harmlos');
+ok(k('Profile contained invalid signature for textures property (profile id: 04049c90-d3e9-4621-9caf-000000aaa227)') === 'sig', 'Ungültige Profil-Signatur → harmlos');
+ok(k('io exception while checking versions: Online mod data expired! Date: Fri Nov 06 13:28:29 CET 2026') === 'xaero', 'Xaero veraltet → harmlos + Update');
+ok(k('Error loading class: mezz/jei/fabric/platform/RenderHelper (java.lang.ClassNotFoundException: mezz/jei/fabric/platform/RenderHelper)') === 'optcls', 'JEI-Klasse fehlt → harmlos');
+ok(k('Mixin apply for mod foo failed foo.mixins.json:X -> y: InvalidInjectionException') === 'mixin', 'Mixin-Fehler → Problem');
+ok(k('java.lang.OutOfMemoryError: Java heap space') === 'oom', 'Speicher → Problem');
+ok(!k('Setting user: Lellek'), 'Normale Zeile → nichts');
+const m = ctx.LINE.exec('[21:47:11] [main/WARN]: Error loading class');
+ok(m && m[1] === '21:47:11' && m[2] === 'main' && ctx.lvOf(m[3]) === 'warn', 'Moderne Log-Zeile zerlegt');
+const m2 = ctx.LINE.exec('[12:00:00] [Client thread/INFO] [minecraft/Minecraft]: Setting user: X');
+ok(m2 && m2[2] === 'Client thread' && m2[5] === 'Setting user: X', 'Forge-1.12-Zeile zerlegt');
+ok(ctx.CONT.test('\tat java.base/sun.security.rsa.RSASignature.engineVerify(Unknown Source)') && ctx.CONT.test('java.security.SignatureException: Bad signature length'), 'Stacktrace-Zeilen erkannt');
+console.log(fail ? `${fail} fehlgeschlagen` : 'alle bestanden'); process.exitCode = fail ? 1 : 0;

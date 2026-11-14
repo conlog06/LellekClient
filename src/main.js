@@ -822,7 +822,7 @@ ipcMain.handle('packs:install', async (_e, { source, projectId, name }) => {
     progress(`Mod ${++done}/${files.length}`, done / files.length);
   });
   copyOverrides(zip, (manifest.overrides || 'overrides') + '/', dir);
-  await fsp.rm(packFile, { force: true }); progress('Fertig', 1); notify('LellekClient', `Modpack „${p.name}“ installiert`);
+  await fsp.rm(packFile, { force: true }); progress('Fertig', 1); notify('LellekClient', `Modpack „${p.name}“ installiert`, 'downloads');
   return { profiles: store.profiles, id: p.id, name: p.name, version: p.version, loader: ld.loader, mods: files.length, skipped };
 });
 
@@ -1099,7 +1099,19 @@ ipcMain.handle('backup:restoreAll', async () => {
 });
 // ---------- Benachrichtigungen & Screenshot in Zwischenablage ----------
 const { Notification, clipboard, nativeImage } = require('electron');
-function notify(title, body) { if (store.settings.notifications === false || (streamerActive() && store.settings.streamer?.mute !== false)) return; try { new Notification({ title, body, icon: path.join(__dirname, '..', 'assets', 'icon-256.png') }).show(); } catch {} }
+// 3.2: Benachrichtigungen pro Kategorie einstellbar (aus / im Launcher / auch Windows) + „Nicht stören“ beim Spielen
+const NOTIF_DEFAULT = { game: 'all', friends: 'all', chat: 'all', party: 'all', ach: 'app', updates: 'all', downloads: 'all', pause: 'all', shots: 'app', ready: 'app', confirm: 'app', errors: 'app', tips: 'app' };
+const NOTIF_DND_OK = new Set(['game', 'party', 'pause']);
+function notifLevel(cat) {
+  const n = store.settings.notif || {}; if (n[cat]) return n[cat];
+  if (cat === 'friends' && store.settings.friendNotify === false) return 'app';
+  if (cat === 'chat' && store.settings.chatNotify === false) return 'app';
+  return NOTIF_DEFAULT[cat] || 'all';
+}
+function notifAllowed(cat, system) { const lv = notifLevel(cat); if (lv === 'off' || (system && lv !== 'all')) return false; if (store.settings.notifDnd !== false && running.size && !NOTIF_DND_OK.has(cat)) return false; return true; }
+ipcMain.handle('app:focusMain', (_e, nav) => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); if (nav) send('nav:goto', nav); } return true; });
+ipcMain.handle('notif:test', () => { try { new Notification({ title: 'LellekClient', body: 'So sieht eine Windows-Benachrichtigung aus.', icon: path.join(__dirname, '..', 'assets', 'icon-256.png') }).show(); } catch {} return true; });
+function notify(title, body, cat = 'tips') { if (store.settings.notifications === false || !notifAllowed(cat, true) || (streamerActive() && store.settings.streamer?.mute !== false)) return; try { new Notification({ title, body, icon: path.join(__dirname, '..', 'assets', 'icon-256.png') }).show(); } catch {} }
 ipcMain.handle('shots:copy', async (_e, { profileId, file }) => { const p = store.profiles.find(x => x.id === profileId); if (!p) return; clipboard.writeImage(nativeImage.createFromPath(path.join(instanceDir(p), 'screenshots', path.basename(file)))); });
 ipcMain.handle('profiles:icon', (_e, { id, icon, color }) => { const p = store.profiles.find(x => x.id === id); if (p) { p.icon = icon; p.color = color; saveStore(); } return store.profiles; });
 
@@ -1109,7 +1121,7 @@ ipcMain.handle('update:check', async () => {
   try {
     const j = await getJson(url);
     const latest = (j.tag_name || j.version || '').replace(/^v/, ''); const dl = j.html_url || j.url || (j.assets?.[0]?.browser_download_url) || url;
-    if (cmpVer(latest, CLIENT_VERSION) > 0) notify('LellekClient', `Version ${latest} ist verfügbar`);
+    if (cmpVer(latest, CLIENT_VERSION) > 0) notify('LellekClient', `Version ${latest} ist verfügbar`, 'updates');
     return { configured: true, current: CLIENT_VERSION, latest, newer: cmpVer(latest, CLIENT_VERSION) > 0, url: dl, notes: (j.body || j.notes || '').slice(0, 600) };
   } catch (e) { return { configured: true, error: e.message }; }
 });
@@ -1466,19 +1478,47 @@ const logWindows = new Map(); // profileId → BrowserWindow
 ipcMain.handle('crash:open', (_e, file) => shell.openPath(file));
 ipcMain.handle('launch:running', () => [...running.keys()]);
 ipcMain.handle('launch:kill', (_e, profileId) => { const pr = running.get(profileId); if (pr) pr.kill(); });
-ipcMain.handle('launch:openLog', (_e, profileId) => { const p = store.profiles.find(x => x.id === profileId); if (!p) return; const w = logWindows.get(p.id); if (w && !w.isDestroyed()) w.focus(); else openLogWindow(p); });
+ipcMain.handle('launch:openLog', (_e, profileId) => { const p = store.profiles.find(x => x.id === profileId); openLogWindow(p || null); });
 ipcMain.handle('logs:openFolder', () => shell.openPath(path.join(DATA_DIR, 'logs')));
 ipcMain.handle('logs:openLast', () => lastLogFile ? shell.openPath(lastLogFile) : null);
+// 3.2: EIN Log-Fenster für alle Instanzen (Liste rechts, Filter nach Level, Hinweise zu bekannten Meldungen)
+let logWin = null;
+const logHistory = new Map(); // profileId → { lines: [], start, end, code, account }
 function openLogWindow(p) {
-  const w = new BrowserWindow({ width: 900, height: 520, title: `Log – ${p.name}`, backgroundColor: '#0F0B06', icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+  if (logWin && !logWin.isDestroyed()) { if (p) logWin.webContents.send('logs:select', p.id); if (logWin.isMinimized()) logWin.restore(); logWin.show(); logWin.focus(); return logWin; }
+  const b = store.settings.logWinBounds || {};
+  const w = new BrowserWindow({ width: b.width || 1180, height: b.height || 720, ...(b.x != null ? { x: b.x, y: b.y } : {}), minWidth: 760, minHeight: 420, title: 'Minecraft-Logs – LellekClient', backgroundColor: '#120D08', show: false, icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });
   w.setMenuBarVisibility(false);
-  w.loadFile(path.join(__dirname, 'renderer', 'log.html'), { query: { name: p.name, version: p.version } });
-  w.on('closed', () => { if (logWindows.get(p.id) === w) logWindows.delete(p.id); });
-  logWindows.set(p.id, w);
+  w.loadFile(path.join(__dirname, 'renderer', 'log.html'), { query: { select: p?.id || '' } });
+  w.once('ready-to-show', () => w.show());
+  let bt = null; const keep = () => { clearTimeout(bt); bt = setTimeout(() => { if (!w.isDestroyed() && !w.isMinimized()) { store.settings.logWinBounds = w.getNormalBounds(); saveStore(); } }, 600); };
+  w.on('resize', keep); w.on('move', keep);
+  w.on('closed', () => { if (logWin === w) logWin = null; });
+  logWin = w;
   return w;
 }
-const deliverLog = (p, channel, payload) => { send(channel, { profileId: p.id, ...payload }); const w = logWindows.get(p.id); if (w && !w.isDestroyed()) w.webContents.send(channel, { profileId: p.id, ...payload }); };
+function logSession(p) { let h = logHistory.get(p.id); if (!h) logHistory.set(p.id, h = { lines: [], start: Date.now(), end: null, code: null }); return h; }
+ipcMain.handle('logs:sessions', () => {
+  const out = [];
+  for (const [id, h] of logHistory) { const p = profileById(id); if (!p) continue; const acc = store.accounts.find(a => a.id === (p.accountId || store.currentAccount)); out.push({ profileId: id, name: p.name, version: p.version, loader: p.loader || '', icon: p.icon || '', color: p.color || '', running: running.has(id), start: h.start, end: h.end, code: h.code, account: acc?.name || currentAuth?.profile?.name || '', lines: h.lines.length, memory: p.memory || store.settings.memory || 4 }); }
+  return out.sort((a, b) => (b.running - a.running) || (b.start - a.start));
+});
+globalThis.__lellekLogTest = (id, lines, closeCode) => { const p = profileById(id); if (!p) return false; logSession(p); deliverLog(p, 'launch:log', { line: lines.join('\n'), lines }); if (closeCode != null) deliverLog(p, 'launch:closed', { code: closeCode }); return true; };
+ipcMain.handle('logs:lines', (_e, id) => logHistory.get(id)?.lines || []);
+ipcMain.handle('logs:upload', async (_e, id) => {
+  const h = logHistory.get(id); if (!h?.lines.length) throw new Error('Kein Log vorhanden');
+  const content = h.lines.join('\n').replace(/--accessToken \S+/g, '--accessToken ***').replace(/(accessToken|session|token)["'=: ]+[A-Za-z0-9._-]{20,}/gi, '$1=***').slice(-9_000_000);
+  const r = await fetch('https://api.mclo.gs/1/log', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'LellekClient' }, body: new URLSearchParams({ content }), signal: withTimeout(30000) });
+  const j = await r.json(); if (!j.success) throw new Error(j.error || 'Hochladen fehlgeschlagen');
+  clipboard.writeText(j.url); return j.url;
+});
+const deliverLog = (p, channel, payload) => {
+  const h = logSession(p);
+  if (channel === 'launch:log') { for (const l of (payload.lines || [payload.line])) h.lines.push(l); if (h.lines.length > 25000) h.lines.splice(0, h.lines.length - 20000); }
+  if (channel === 'launch:closed') { h.end = Date.now(); h.code = payload.code; }
+  send(channel, { profileId: p.id, ...payload }); if (logWin && !logWin.isDestroyed()) logWin.webContents.send(channel, { profileId: p.id, ...payload });
+};
 // 3.1: Log-Zeilen gebündelt (alle 150 ms) und Fortschritt gedrosselt – vorher eine IPC-Nachricht pro Zeile bzw. pro Asset (tausende beim Start)
 const logBuf = new Map();
 function flushLog(p) { const b = logBuf.get(p.id); if (!b) return; clearTimeout(b.t); b.t = null; if (b.lines.length) { const lines = b.lines.splice(0); deliverLog(p, 'launch:log', { line: lines.join('\n'), lines }); } if (b.prog) { deliverLog(p, 'launch:progress', b.prog); b.prog = null; } }
@@ -1496,6 +1536,7 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
   if (running.has(profileId)) throw new Error(`„${p.name}“ läuft bereits`);
   resetSessionTracking(profileId);
   const authorization = await authFor(p.accountId);
+  logHistory.set(p.id, { lines: [], start: Date.now(), end: null, code: null }); if (logWin && !logWin.isDestroyed()) logWin.webContents.send('logs:new', p.id);
   if (store.settings.logWindow !== false) openLogWindow(p);
   const LOG_DIR = path.join(DATA_DIR, 'logs');
   fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -1557,7 +1598,7 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
     p.playtimeMs = (p.playtimeMs || 0) + (Date.now() - launchStart); p.lastPlayed = Date.now(); recordSession(p, launchStart, code); saveStore();
     log(`Minecraft beendet mit Code ${code}`);
     let crash = null;
-    if (code !== 0) notify('LellekClient', `${p.name} ist abgestürzt (Code ${code})`);
+    if (code !== 0) notify('LellekClient', `${p.name} ist abgestürzt (Code ${code})`, 'game');
     if (code !== 0) { try { const cr = path.join(dir, 'crash-reports'); const files = (await fsp.readdir(cr)).map(f => ({ f, t: fs.statSync(path.join(cr, f)).mtimeMs })).filter(x => x.t > launchStart).sort((a, b) => b.t - a.t); if (files[0]) { crash = path.join(cr, files[0].f); log('Crash-Report: ' + crash); } } catch {} }
     logStream.end(); let analysis = null; if (code !== 0 && !userKilled.delete(p.id)) { try { analysis = analyzeCrash(p, crash); } catch {} } sendLog(p, 'launch:closed', { code, crash, analysis });
   });
@@ -1875,7 +1916,7 @@ async function installMrpackFile(packFile, name, removeAfter) {
   });
   copyOverrides(zip, 'overrides/', dir); copyOverrides(zip, 'client-overrides/', dir);
   if (removeAfter) await fsp.rm(packFile, { force: true });
-  progress('Fertig', 1); notify('LellekClient', `Modpack „${p.name}“ installiert`);
+  progress('Fertig', 1); notify('LellekClient', `Modpack „${p.name}“ installiert`, 'downloads');
   return { profiles: store.profiles, id: p.id, name: p.name, version: p.version, loader, mods: files.length, skipped: failed };
 }
 
@@ -2115,7 +2156,7 @@ async function publishPresence(force) {
   publishing = (async () => { try { const r = await presenceCall('PUT', '/v1/presence/me', myPresence()); presenceOnline = r.ok; } catch { presenceOnline = false; } })();
   return publishing;
 }
-const notifyFriends = (text) => { if (store.settings.friendNotify !== false) notify('LellekClient', text); };
+const notifyFriends = (text, cat = 'friends') => notify('LellekClient', text, cat);
 async function pollFriends(again) {
   if (!currentAuth) { send('friends:update', friendList()); return; }
   lastPoll = Date.now();
@@ -2656,7 +2697,7 @@ function checkAchievements() {
   if (!fresh.length) return;
   saveStore();
   if (first || !achInit) return; // beim allerersten Abgleich still freischalten
-  for (const a of fresh) { send('ach:unlocked', { id: a.id, icon: a.icon, title: a.title, desc: a.desc, level: levelInfo() }); notify('Erfolg freigeschaltet', `${a.icon} ${a.title} – ${a.desc}`); }
+  for (const a of fresh) { send('ach:unlocked', { id: a.id, icon: a.icon, title: a.title, desc: a.desc, level: levelInfo() }); notify('Erfolg freigeschaltet', `${a.icon} ${a.title} – ${a.desc}`, 'ach'); }
   publishPresence?.(true);
 }
 app.whenReady().then(() => setTimeout(() => { checkAchievements(); achInit = true; }, 3000));
@@ -2683,7 +2724,7 @@ function addIncoming(list) {
     const open = chatOpenFor === m.from && win?.isFocused();
     if (!open) c.unread[m.from] = (c.unread[m.from] || 0) + 1;
     const nick = myFriends().find(f => f.uuid === m.from)?.nick || m.name;
-    if (!open && store.settings.chatNotify !== false) notify(nick, m.kind === 'profile' ? `hat dir ein Profil geschickt: ${m.data?.name || ''}` : m.kind === 'server' ? `schlägt einen Server vor: ${m.data?.ip || ''}` : String(m.text).slice(0, 140));
+    if (!open) notify(nick, m.kind === 'profile' ? `hat dir ein Profil geschickt: ${m.data?.name || ''}` : m.kind === 'server' ? `schlägt einen Server vor: ${m.data?.ip || ''}` : String(m.text).slice(0, 140), 'chat');
     send('chat:message', { ...t[t.length - 1], name: nick });
   }
   saveStore(); send('chat:unread', chatUnread());
@@ -2722,7 +2763,7 @@ function applySocial(d) {
   }
   if (Array.isArray(d.partyInvites)) {
     const before = partyInvites.map(i => i.id).join(); partyInvites = d.partyInvites;
-    for (const i of partyInvites) if (!seenPartyInvites.has(i.id + i.at)) { seenPartyInvites.add(i.id + i.at); notifyFriends(`${i.byName} lädt dich in eine Party ein${i.plan?.server ? ' – ' + i.plan.server : ''}`); send('party:invite', i); }
+    for (const i of partyInvites) if (!seenPartyInvites.has(i.id + i.at)) { seenPartyInvites.add(i.id + i.at); notifyFriends(`${i.byName} lädt dich in eine Party ein${i.plan?.server ? ' – ' + i.plan.server : ''}`, 'party'); send('party:invite', i); }
     if (partyInvites.map(i => i.id).join() !== before) send('party:update', partyView());
   }
 }
@@ -3466,7 +3507,7 @@ const v3 = {
   getJson, download, pool, sha1, withTimeout, manifest, mcMinor, cmpVer, nbt, readNbt,
   pickVersion, pickFile, modrinthVersions, installModrinthVersion, ensureFabricApi, newProfileFrom, neoforgeVersions, tmSnapshotQuiet,
   lookupPlayer, skinFor, ACHIEVEMENTS, levelInfo,
-  get win() { return win; }, get currentAuth() { return currentAuth; },
+  get win() { return win; }, get currentAuth() { return currentAuth; }, logWin: () => logWin,
 };
 require('./main/index.js')(v3);
 // Welt-Backups zusätzlich in den Spiegel-Ordner kopieren (OneDrive/Google Drive …)

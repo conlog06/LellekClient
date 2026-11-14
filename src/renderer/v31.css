@@ -37,3 +37,7 @@ body.idle-pause *, body.idle-pause *::before, body.idle-pause *::after { animati
 .row.end .watch-btn, .proj-dlg .watch-btn { position: static; width: auto; height: auto; padding: 8px 12px; border-radius: 10px; background: transparent; color: var(--text); }
 .row.end .watch-btn.on { color: #FF6B81; }
 .skin-thumb { display: block; margin: 0 auto; image-rendering: auto; }
+
+/* 3.2 Benachrichtigungen */
+.notif-seg { flex-shrink: 0; }
+.notif-seg button { font-size: 12px; padding: 5px 10px; white-space: nowrap; }

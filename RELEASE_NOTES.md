@@ -4,6 +4,25 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.2 – Log-Fenster und Benachrichtigungen
+
+**Neues Log-Fenster**
+- Ein Fenster für alle Instanzen (Liste rechts mit Laufzeit, Konto, Status)
+- Filter: Fehler, Warnung, Info, Debug – mit Zählern; Suche mit Hervorhebung (Strg+F)
+- Stacktraces werden eingeklappt, sehr lange Zeilen gekürzt
+- Bekannte harmlose Meldungen werden erkannt, erklärt und standardmäßig ausgeblendet (Skin-Signaturen von Servern, veraltete Xaero-Daten, optionale JEI-Klassen, fehlende Texturen u. v. m.)
+- Echte Probleme (Mod-Konflikt, fehlende Abhängigkeit, zu wenig RAM, falsches Java, doppelte Mods) bekommen einen Hinweis mit Lösung
+- RAM- und CPU-Anzeige, Beenden/Neu starten, Instanz-Ordner, „Mitlaufen“, Kopieren
+- Log mit einem Klick auf mclo.gs hochladen (Link wird kopiert, Zugangsdaten werden entfernt)
+
+**Benachrichtigungen einstellbar**
+- Optionen → Benachrichtigungen: pro Art „Aus“, „Launcher“ oder „Launcher + Windows“
+- „Nicht stören, während Minecraft läuft“ (nur Absturz, Party und Pausen-Erinnerung kommen durch)
+- Schnell-Voreinstellung „Nur das Wichtigste“; Rechtsklick auf die Glocke öffnet die Einstellungen
+
+**Behoben**
+- Knöpfe in den Optionen haben das Formular nicht mehr versehentlich abgeschickt
+
 ## Neu in 3.1 – schneller, sparsamer, stabiler
 
 **Spielstart & Leistung**

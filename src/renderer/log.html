@@ -1,31 +1,44 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8" /><title>Log</title>
-<style>
-  body { margin: 0; background: #0F0B06; color: #C9BEA9; font: 12px/1.45 ui-monospace, Consolas, monospace; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #1F1810; border-bottom: 1px solid #3B2E1C; font-family: "Segoe UI", sans-serif; color: #F5EEE2; }
-  header b { color: #FFB400; }
-  .bar { flex: 1; height: 8px; background: #16110A; border-radius: 4px; overflow: hidden; }
-  .bar div { height: 100%; width: 0; background: #FFB400; transition: width .2s; }
-  pre { margin: 0; padding: 10px 14px; overflow: auto; white-space: pre-wrap; user-select: text; }
-  .err { color: #F07C7C; } .warn { color: #E8C170; } .ok { color: #7BD88F; }
-  button { font: inherit; background: #32271A; color: #F5EEE2; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-</style></head>
+<html lang="de"><head><meta charset="utf-8" /><title>Minecraft-Logs – LellekClient</title>
+<link rel="stylesheet" href="logwin.css" />
+</head>
 <body>
-  <header><b id="title">Log</b><span id="state">Startet…</span><div class="bar"><div id="bar"></div></div><input id="q" placeholder="Suchen…" style="font:inherit;background:#16110A;color:#F5EEE2;border:1px solid #3B2E1C;border-radius:6px;padding:4px 8px" /><label style="font-family:sans-serif;font-size:12px"><input type="checkbox" id="onlyErr" /> nur Fehler</label><button id="clear">Leeren</button></header>
-  <pre id="log"></pre>
-  <script>
-    const q = new URLSearchParams(location.search); document.title = 'Log – ' + q.get('name');
-    document.getElementById('title').textContent = q.get('name') + ' · ' + q.get('version');
-    const log = document.getElementById('log'), bar = document.getElementById('bar'), state = document.getElementById('state');
-    const search = document.getElementById('q'), onlyErr = document.getElementById('onlyErr');
-    const apply = () => { const f = search.value.toLowerCase(); for (const s of log.children) s.style.display = ((!f || s.textContent.toLowerCase().includes(f)) && (!onlyErr.checked || s.classList.contains('err'))) ? '' : 'none'; };
-    search.oninput = apply; onlyErr.onchange = apply;
-    const MAX = 6000; let follow = true; log.addEventListener('scroll', () => { follow = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; });
-    const show = (s) => { const f = search.value.toLowerCase(); s.style.display = ((!f || s.textContent.toLowerCase().includes(f)) && (!onlyErr.checked || s.classList.contains('err'))) ? '' : 'none'; };
-    const add = (t, cls) => { const frag = document.createDocumentFragment(); for (const l of String(t).split('\n')) { const s = document.createElement('span'); const c = cls || (/ERROR|Exception|FEHLER|FATAL/i.test(l) ? 'err' : /WARN/.test(l) ? 'warn' : ''); if (c) s.className = c; s.textContent = l + '\n'; show(s); frag.appendChild(s); } log.appendChild(frag); while (log.childElementCount > MAX) log.firstElementChild.remove(); if (follow) log.scrollTop = log.scrollHeight; };
-    window.lellek.onLog(({ line, lines }) => add(lines ? lines.join('\n') : line));
-    window.lellek.onProgress(({ task, percent }) => { bar.style.width = Math.round(percent * 100) + '%'; state.textContent = task + ' ' + Math.round(percent * 100) + ' %'; });
-    window.lellek.onClosed(({ code }) => { state.textContent = code === 0 ? 'Beendet' : 'Beendet mit Code ' + code; add('— Ende —', code === 0 ? 'ok' : 'err'); });
-    document.getElementById('clear').onclick = () => { log.textContent = ''; };
-  </script>
+  <main class="lw">
+    <section class="lw-main">
+      <header class="lw-tools">
+        <div class="lw-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Log durchsuchen …  (Strg+F)" spellcheck="false" /></div>
+        <div class="lw-chips" id="chips">
+          <button class="chip lv-error on" data-lv="error">FEHLER <b id="cError">0</b></button>
+          <button class="chip lv-warn on" data-lv="warn">WARNUNG <b id="cWarn">0</b></button>
+          <button class="chip lv-info on" data-lv="info">INFO</button>
+          <button class="chip lv-debug" data-lv="debug">DEBUG</button>
+        </div>
+        <label class="lw-tg" title="Bekannte, harmlose Meldungen ausblenden (z. B. Skin-Signaturen von Servern)"><input type="checkbox" id="hideHarm" /> Harmlose ausblenden</label>
+      </header>
+      <div class="lw-hints hidden" id="hints"><button class="lw-hints-head" id="hintsHead"></button><div class="lw-hints-list" id="hintsList"></div></div>
+      <div class="lw-progress hidden" id="prog"><div><span id="progText">Startet …</span><i><b id="progBar"></b></i></div></div>
+      <div class="lw-log" id="log" tabindex="0"></div>
+      <footer class="lw-foot">
+        <span id="count">0 Zeilen</span>
+        <button class="lnk on" id="follow" title="Automatisch zum Ende scrollen">↓ Mitlaufen</button>
+        <span class="grow"></span>
+        <button class="lnk" id="copy">Kopieren</button>
+        <button class="lnk" id="clear">Leeren</button>
+        <button class="lnk" id="upload" title="Log anonym auf mclo.gs hochladen und Link kopieren – zum Teilen bei Problemen">⇪ Hochladen (mclo.gs)</button>
+      </footer>
+    </section>
+    <aside class="lw-side">
+      <h2>Instanzen</h2>
+      <div class="lw-list" id="list"><p class="muted">Noch kein Spielstart in dieser Sitzung.</p></div>
+      <div class="lw-card hidden" id="card">
+        <div class="lw-card-head"><b id="cardName"></b><span id="cardTime" class="ok"></span></div>
+        <div class="lw-meter"><span>RAM</span><i><b id="ramBar"></b></i><em id="ramTxt">–</em></div>
+        <div class="lw-meter"><span>CPU</span><i><b id="cpuBar"></b></i><em id="cpuTxt">–</em></div>
+        <div class="lw-card-btns"><button class="stop" id="stop">■ Beenden</button><button id="folder" title="Instanz-Ordner öffnen">📁</button><button id="files" title="Log-Dateien">🗎</button></div>
+      </div>
+      <p class="lw-run muted" id="runCount"></p>
+    </aside>
+  </main>
+  <div class="lw-toast hidden" id="toast"></div>
+  <script src="logwin.js"></script>
 </body></html>

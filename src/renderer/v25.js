@@ -409,7 +409,7 @@ async function renderAch() {
     $$('#statsRecent li').forEach((li, i) => { const r = s.recent[i]; if (!r) return; if (r.recap) { const x = r.recap; const bits = [x.advancements?.length ? `🏆 ${x.advancements.length}` : '', x.deaths ? `💀 ${x.deaths}` : '', x.kills ? `⚔️ ${x.kills}` : '', x.screenshots ? `📸 ${x.screenshots}` : ''].filter(Boolean).join('  '); if (bits) li.children[1]?.append(el('span', 'sess-recap', '  ' + bits)); } li.title = 'Rückblick anzeigen'; li.onclick = () => showRecap(r); });
   };
 }
-api.ach.onUnlocked((a) => { floatToast(`Erfolg: ${a.title}`, a.desc, { icon: a.icon, cls: 'ach', ms: 6000, force: true }); renderLevelPill(a.level); if (state.view === 'stats') renderAch(); renderHome(); });
+api.ach.onUnlocked((a) => { floatToast(`Erfolg: ${a.title}`, a.desc, { icon: a.icon, cls: 'ach', ms: 6000, force: true, cat: 'ach' }); renderLevelPill(a.level); if (state.view === 'stats') renderAch(); renderHome(); });
 function renderLevelPill(lv) {
   const b = $('.account-btn'); if (!b || !lv) return;
   let p = b.querySelector('.lvl-pill'); if (!p) { p = el('span', 'lvl-pill'); b.prepend(p); } p.textContent = String(lv.level); p.title = `Level ${lv.level}`;
@@ -608,7 +608,7 @@ $('#chatExtra').onclick = () => popMenu($('#chatExtra'), [
 ]);
 api.chat.onMessage((m) => {
   if (state.view === 'friends' && ftab === 'chat') { if (V25.chatWith === m.from) renderThread(); renderChat(); }
-  else floatToast(m.name, m.kind === 'profile' ? 'hat dir ein Profil geschickt' : m.kind === 'server' ? `Server: ${m.data?.ip || ''}` : m.text, { icon: '💬', action: ['Antworten', () => openChat(m.from)] });
+  else floatToast(m.name, m.kind === 'profile' ? 'hat dir ein Profil geschickt' : m.kind === 'server' ? `Server: ${m.data?.ip || ''}` : m.text, { cat: 'chat', icon: '💬', action: ['Antworten', () => openChat(m.from)] });
 });
 api.chat.onUnread(() => updateChatBadge());
 async function updateChatBadge() {
@@ -706,8 +706,8 @@ async function renderParty(poll) {
   grid.append(right); body.append(grid);
 }
 api.party.onUpdate((v) => { V25.partyRecv = Date.now(); applyPartyView(v); });
-api.party.onInvite((i) => floatToast(`${i.byName} lädt dich in eine Party ein`, i.plan?.server || 'Gemeinsam spielen', { icon: '🥳', ms: 12000, action: ['Beitreten', () => partyJoin(i.id)] }));
-api.party.onCountdown(({ inMs, server }) => { const s = Math.round(inMs / 1000); floatToast(`Party startet in ${s} s`, server ? `auf ${server}` : 'Minecraft startet gleich', { icon: '🚀', ms: Math.max(3000, inMs), force: true }); $('#partyChip').classList.add('go'); setTimeout(() => $('#partyChip').classList.remove('go'), inMs + 2000); });
+api.party.onInvite((i) => floatToast(`${i.byName} lädt dich in eine Party ein`, i.plan?.server || 'Gemeinsam spielen', { cat: 'party', icon: '🥳', ms: 12000, action: ['Beitreten', () => partyJoin(i.id)] }));
+api.party.onCountdown(({ inMs, server }) => { const s = Math.round(inMs / 1000); floatToast(`Party startet in ${s} s`, server ? `auf ${server}` : 'Minecraft startet gleich', { cat: 'party', icon: '🚀', ms: Math.max(3000, inMs), force: true }); $('#partyChip').classList.add('go'); setTimeout(() => $('#partyChip').classList.remove('go'), inMs + 2000); });
 api.party.onLaunched((r) => { if (r.ok) { runningSet.add(r.profileId); updatePlayButton?.(); renderRunning?.(); toast('Party-Start: Minecraft läuft'); } else toast(`Party-Start fehlgeschlagen: ${r.error}`, true); });
 function startFastPoll() {
   clearInterval(V25.pollT);

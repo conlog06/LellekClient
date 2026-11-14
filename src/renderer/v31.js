@@ -53,7 +53,7 @@ api.onClosed(({ profileId }) => { setTimeout(syncGame, 300); delete V31.usage[pr
 api.v31.onReady(({ profileId, ms }) => {
   V31.ready[profileId] = ms; const p = state.profiles.find(x => x.id === profileId);
   if (p) { p.lastLaunch = { ...(p.lastLaunch || {}), readyMs: ms, at: Date.now() }; }
-  floatToast(`${p?.name || 'Minecraft'} ist bereit`, `Start bis Hauptmenü: ${fmtSec(ms)}`);
+  floatToast(`${p?.name || 'Minecraft'} ist bereit`, `Start bis Hauptmenü: ${fmtSec(ms)}`, { cat: 'ready', icon: '⏱️' });
 });
 api.v31.onUsage((u) => {
   V31.usage[u.profileId] = u;
@@ -62,7 +62,7 @@ api.v31.onUsage((u) => {
 // Screenshot-Sofortaktion
 api.v31.onShot(({ profileId, file, copied }) => {
   const p = state.profiles.find(x => x.id === profileId);
-  floatToast(copied ? 'Screenshot kopiert' : '📸 Screenshot gespeichert', `${p?.name || ''} · ${file}`, copied ? { icon: '📸' } : { action: ['Kopieren', () => api.shotCopy({ profileId, file }).then(() => toast('In die Zwischenablage kopiert'))], ms: 6000 });
+  floatToast(copied ? 'Screenshot kopiert' : '📸 Screenshot gespeichert', `${p?.name || ''} · ${file}`, copied ? { icon: '📸', cat: 'shots' } : { cat: 'shots', action: ['Kopieren', () => api.shotCopy({ profileId, file }).then(() => toast('In die Zwischenablage kopiert'))], ms: 6000 });
 });
 
 // Startzeit-Karte (Instanz-Übersicht)

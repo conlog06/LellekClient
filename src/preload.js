@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('lellek', {
   skins: { list: invoke('skins:list'), add: invoke('skins:add'), remove: invoke('skins:remove'), apply: invoke('skins:apply'), saveCurrent: invoke('skins:saveCurrent') },
   voice: { status: invoke('voice:status') },
   cosmetics: { status: invoke('cosmetics:status'), myCape: invoke('cosmetics:myCape'), uploadCape: invoke('cosmetics:uploadCape'), deleteCape: invoke('cosmetics:deleteCape') },
-  logs: { openFolder: invoke('logs:openFolder'), openLast: invoke('logs:openLast') },
+  logs: { openFolder: invoke('logs:openFolder'), openLast: invoke('logs:openLast'), sessions: invoke('logs:sessions'), lines: invoke('logs:lines'), upload: invoke('logs:upload'), onSelect: on('logs:select'), onNew: on('logs:new') },
   worlds: { list: invoke('worlds:list'), export: invoke('worlds:export'), import: invoke('worlds:import'), delete: invoke('worlds:delete'), copy: invoke('worlds:copy'), openFolder: invoke('worlds:openFolder') },
   server: { info: invoke('server:info'), setup: invoke('server:setup'), start: invoke('server:start'), stop: invoke('server:stop'), command: invoke('server:command'), importWorld: invoke('server:importWorld'), openFolder: invoke('server:openFolder'), onLog: on('server:log'), onState: on('server:state') },
   skin: { upload: invoke('skin:upload'), setCape: invoke('cape:set'), texture: invoke('skin:texture'), of: invoke('skin:of') },
@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('lellek', {
   contentMeta: invoke('content:meta'),
   // 3.0
   hud: { status: invoke('hud:status'), set: invoke('hud:set') },
+  v32: { focusMain: invoke('app:focusMain'), onGoto: on('nav:goto'), notifTest: invoke('notif:test') },
   v31: { launchStats: invoke('launch:stats'), usage: invoke('perf:usage'), onUsage: on('perf:usage'), onGame: on('perf:game'), onReady: on('perf:ready'), onShot: on('shot:new'),
     watchList: invoke('watch:list'), watchToggle: invoke('watch:toggle'),
     bisectStatus: invoke('bisect:status'), bisectStart: invoke('bisect:start'), bisectAnswer: invoke('bisect:answer'), bisectStop: invoke('bisect:stop') },

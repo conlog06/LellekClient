@@ -10,13 +10,13 @@ const safe = (name, fn) => { try { return fn(); } catch (e) { api.app.logError(`
 let errShown = 0;
 function reportUiError(msg) {
   api.app.logError(String(msg).slice(0, 2000)).catch(() => {});
-  if (Date.now() - errShown > 15000) { errShown = Date.now(); floatToast('Da ist etwas schiefgelaufen', 'Details stehen im Launcher-Protokoll (Optionen → Hilfe & Diagnose)', { err: true, icon: '⚠️', force: true }); }
+  if (Date.now() - errShown > 15000) { errShown = Date.now(); floatToast('Da ist etwas schiefgelaufen', 'Details stehen im Launcher-Protokoll (Optionen → Hilfe & Diagnose)', { err: true, icon: '⚠️', force: true, cat: 'errors' }); }
 }
 window.addEventListener('error', (e) => reportUiError(`${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
 window.addEventListener('unhandledrejection', (e) => { const m = String(e.reason?.message || e.reason || ''); if (/Error invoking remote method/.test(m)) { api.app.logError('Unbehandelt: ' + m); return; } reportUiError('Unbehandelt: ' + (e.reason?.stack || m)); });
-api.app.onError(({ message }) => floatToast('Fehler im Hintergrund', message, { err: true, icon: '⚠️' }));
-api.app.onSelfheal(({ profile, fixed }) => floatToast(`Selbstheilung: ${profile}`, fixed.slice(0, 3).join(' · ') + (fixed.length > 3 ? ` · +${fixed.length - 3}` : ''), { icon: '🩹', ms: 8000, force: true }));
-api.app.startupInfo().then(i => { if (i.recovered) floatToast('Einstellungen waren beschädigt', i.recovered === 'leer' ? 'Es gab keine lesbare Sicherung – die defekte Datei wurde aufgehoben.' : 'Sie wurden automatisch aus der letzten Sicherung wiederhergestellt.', { icon: '🛟', ms: 12000, force: true, err: i.recovered === 'leer' }); }).catch(() => {});
+api.app.onError(({ message }) => floatToast('Fehler im Hintergrund', message, { err: true, icon: '⚠️', cat: 'errors' }));
+api.app.onSelfheal(({ profile, fixed }) => floatToast(`Selbstheilung: ${profile}`, fixed.slice(0, 3).join(' · ') + (fixed.length > 3 ? ` · +${fixed.length - 3}` : ''), { icon: '🩹', ms: 8000, force: true, cat: 'tips' }));
+api.app.startupInfo().then(i => { if (i.recovered) floatToast('Einstellungen waren beschädigt', i.recovered === 'leer' ? 'Es gab keine lesbare Sicherung – die defekte Datei wurde aufgehoben.' : 'Sie wurden automatisch aus der letzten Sicherung wiederhergestellt.', { cat: 'important', icon: '🛟', ms: 12000, force: true, err: i.recovered === 'leer' }); }).catch(() => {});
 
 // =====================================================================
 // Benachrichtigungen: Glocke oben rechts mit Verlauf
@@ -231,7 +231,7 @@ function updateChip() {
 // einmal pro Tag im Hintergrund nachsehen
 setTimeout(async () => {
   if (Date.now() - LS.get('updCheckAt', 0) < 20 * 3600000) return;
-  try { const r = await api.updatesAll.check(false); LS.set('updCheckAt', Date.now()); V27.updates = r; updateChip(); const n = r.reduce((a, x) => a + x.updates.length, 0); if (n) floatToast(`${n} Mod-Updates verfügbar`, r.filter(x => x.updates.length).map(x => x.name).join(', '), { icon: '⬆️', action: ['Ansehen', () => openUpdateCenter()] }); } catch {}
+  try { const r = await api.updatesAll.check(false); LS.set('updCheckAt', Date.now()); V27.updates = r; updateChip(); const n = r.reduce((a, x) => a + x.updates.length, 0); if (n) floatToast(`${n} Mod-Updates verfügbar`, r.filter(x => x.updates.length).map(x => x.name).join(', '), { icon: '⬆️', cat: 'updates', action: ['Ansehen', () => openUpdateCenter()] }); } catch {}
 }, 20000);
 
 // =====================================================================

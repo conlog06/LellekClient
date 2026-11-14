@@ -8,23 +8,45 @@ module.exports = function v31(ctx) {
   // ---------- Startzeit ----------
   ipcMain.handle('launch:stats', (_e, id) => { const p = profileById(id); if (!p) return null; return { last: p.lastLaunch || null, history: p.launchHistory || [] }; });
 
-  // ---------- Live-Arbeitsspeicher von Minecraft ----------
-  function rssOf(pid) {
-    return new Promise((resolve) => {
-      if (process.platform === 'linux') { try { const m = /VmRSS:\s+(\d+) kB/.exec(fs.readFileSync(`/proc/${pid}/status`, 'utf8')); return resolve(m ? Number(m[1]) * 1024 : null); } catch { return resolve(null); } }
-      if (process.platform === 'win32') return execFile('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 4000 }, (err, out) => { if (err) return resolve(null); const f = String(out).trim().split('","'); const k = Number((f[4] || '').replace(/[^\d]/g, '')); resolve(k ? k * 1024 : null); });
-      execFile('ps', ['-o', 'rss=', '-p', String(pid)], { timeout: 4000 }, (err, out) => resolve(err ? null : Number(String(out).trim()) * 1024 || null));
-    });
+  // ---------- Live-Arbeitsspeicher und CPU von Minecraft ----------
+  const { spawn } = require('child_process');
+  const cores = Math.max(1, os.cpus().length);
+  function rssOf(pid) { return sample(pid).then(x => x?.rss || null); }
+  const winMon = new Map(); // pid → { proc, last: { cpuMs, rss, at } } – EIN PowerShell-Prozess pro Spiel statt ständig neuer Aufrufe
+  function winMonitor(pid) {
+    let m = winMon.get(pid); if (m) return m;
+    m = { last: null, prev: null };
+    try {
+      const cmd = `$ErrorActionPreference='SilentlyContinue'; while($true){ $p=Get-Process -Id ${Number(pid)}; if(!$p){break}; [Console]::Out.WriteLine(('{0} {1}' -f [long]$p.TotalProcessorTime.TotalMilliseconds,[long]$p.WorkingSet64)); Start-Sleep -Seconds 3 }`;
+      m.proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', cmd], { windowsHide: true });
+      let buf = ''; m.proc.stdout.on('data', d => { buf += d; let k; while ((k = buf.indexOf('\n')) >= 0) { const [c, r] = buf.slice(0, k).trim().split(' ').map(Number); buf = buf.slice(k + 1); if (r) { m.prev = m.last; m.last = { cpuMs: c, rss: r, at: Date.now() }; } } });
+      m.proc.on('exit', () => winMon.delete(pid)); m.proc.on('error', () => winMon.delete(pid));
+    } catch {}
+    winMon.set(pid, m); return m;
+  }
+  const lastCpu = new Map();
+  async function sample(pid) {
+    if (process.platform === 'win32') { const m = winMonitor(pid); if (!m.last) return null; const cpu = m.prev ? Math.max(0, Math.min(100, (m.last.cpuMs - m.prev.cpuMs) / ((m.last.at - m.prev.at) * cores) * 100)) : null; return { rss: m.last.rss, cpu }; }
+    if (process.platform === 'linux') {
+      try {
+        const st = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' '); const ticks = Number(st[11]) + Number(st[12]);
+        const rss = Number(/VmRSS:\s+(\d+) kB/.exec(fs.readFileSync(`/proc/${pid}/status`, 'utf8'))?.[1] || 0) * 1024;
+        const prev = lastCpu.get(pid); const now = Date.now(); lastCpu.set(pid, { ticks, at: now });
+        const cpu = prev ? Math.max(0, Math.min(100, ((ticks - prev.ticks) * 10) / ((now - prev.at) * cores) * 100)) : null;
+        return { rss, cpu };
+      } catch { return null; }
+    }
+    return new Promise(res => execFile('ps', ['-o', '%cpu=,rss=', '-p', String(pid)], { timeout: 4000 }, (err, out) => { if (err) return res(null); const [c, r] = String(out).trim().split(/\s+/).map(Number); res({ rss: r * 1024, cpu: c / cores }); }));
   }
   const usage = {};
   setInterval(async () => {
     if (!running.size) return;
     for (const [id, proc] of running) {
-      if (!proc?.pid) continue; const rss = await rssOf(proc.pid); if (!rss) continue;
-      const p = profileById(id); const u = usage[id] ??= { peak: 0 }; u.rss = rss; u.peak = Math.max(u.peak, rss); u.max = (p?.memory || store.settings.memory || 4) * 1073741824;
-      send('perf:usage', { profileId: id, rss, peak: u.peak, max: u.max });
+      if (!proc?.pid) continue; const sm = await sample(proc.pid); if (!sm?.rss) continue;
+      const p = profileById(id); const u = usage[id] ??= { peak: 0 }; u.rss = sm.rss; u.cpu = sm.cpu; u.peak = Math.max(u.peak, sm.rss); u.max = (p?.memory || store.settings.memory || 4) * 1073741824; u.since = ctx.gameContext?.get(id)?.since || u.since;
+      send('perf:usage', { profileId: id, ...u }); try { ctx.logWin?.()?.webContents.send('perf:usage', { profileId: id, ...u }); } catch {}
     }
-  }, 5000).unref?.();
+  }, 3000).unref?.();
   ipcMain.handle('perf:usage', () => usage);
 
   // ---------- Taskleisten-Schnellstart (Windows-Sprungliste) ----------
@@ -69,7 +91,7 @@ module.exports = function v31(ctx) {
     if (p && running.has(id)) { watchShots(p); updateJumpList(); }
     return r;
   });
-  setInterval(() => { for (const id of [...watchers.keys()]) if (!running.has(id)) unwatchShots(id); for (const id of Object.keys(usage)) if (!running.has(id)) delete usage[id]; }, 4000).unref?.();
+  setInterval(() => { for (const id of [...watchers.keys()]) if (!running.has(id)) unwatchShots(id); for (const id of Object.keys(usage)) if (!running.has(id)) delete usage[id]; for (const [pid, m] of winMon) if (![...running.values()].some(pr => pr?.pid === pid)) { try { m.proc?.kill(); } catch {} winMon.delete(pid); } }, 4000).unref?.();
 
   // ---------- Mod-Detektiv: fehlerhafte Mod per Halbierung finden ----------
   function modMeta(file) {
