@@ -1561,6 +1561,7 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
   try { fs.mkdirSync(path.join(dir, 'lellek'), { recursive: true }); await fsp.writeFile(path.join(dir, 'lellek', 'cosmetics-server.txt'), cosmeticsBase()); await fsp.writeFile(path.join(dir, 'lellek', 'streamer.txt'), streamerActive() ? 'true' : 'false'); await fsp.writeFile(path.join(dir, 'lellek', 'voice-server.txt'), (store.settings.voiceServer || 'http://127.0.0.1:8766').trim().replace(/\/$/, '')); } catch {}
 
   if (store.settings.backupWorlds !== false) { try { await backupWorlds(p, log); } catch (e) { log('Backup fehlgeschlagen: ' + e.message); } }
+  try { await prepareGraphics(p, javaPath, log); } catch (e) { logLauncher('INFO', 'Grafik-Vorbereitung: ' + e.message); }
   const launchStart = Date.now();
   const opts = {
     authorization,
@@ -1597,6 +1598,8 @@ ipcMain.handle('launch', async (_e, profileId, server) => {
     running.delete(profileId); gameContext.delete(profileId); updatePresence();
     p.playtimeMs = (p.playtimeMs || 0) + (Date.now() - launchStart); p.lastPlayed = Date.now(); recordSession(p, launchStart, code); saveStore();
     log(`Minecraft beendet mit Code ${code}`);
+    if (NATIVE_CRASH.has(code) && Date.now() - launchStart < 180000) { p.safeGraphics = true; saveStore(); log('Grafiktreiber-Absturz erkannt – der nächste Start nutzt den sicheren Grafik-Modus (Fenster statt Vollbild, Grafikkarte festgelegt).'); }
+    else if (code === 0 && p.safeGraphics) { delete p.safeGraphics; saveStore(); }
     let crash = null;
     if (code !== 0) notify('LellekClient', `${p.name} ist abgestürzt (Code ${code})`, 'game');
     if (code !== 0) { try { const cr = path.join(dir, 'crash-reports'); const files = (await fsp.readdir(cr)).map(f => ({ f, t: fs.statSync(path.join(cr, f)).mtimeMs })).filter(x => x.t > launchStart).sort((a, b) => b.t - a.t); if (files[0]) { crash = path.join(cr, files[0].f); log('Crash-Report: ' + crash); } } catch {} }
@@ -3500,6 +3503,39 @@ wrapHandler('launch', async (orig, e, profileId, server) => {
     try { const lt = launchTimes.get(p.id); if (lt && !lt.ready && /Sound engine started/.test(line)) { lt.ready = Date.now() - lt.t0; p.lastLaunch = { ...(p.lastLaunch || {}), readyMs: lt.ready, at: Date.now() }; (p.launchHistory ??= []).push({ at: Date.now(), prepMs: lt.spawned || 0, readyMs: lt.ready }); p.launchHistory = p.launchHistory.slice(-10); saveStore(); send('perf:ready', { profileId: p.id, ms: lt.ready }); } } catch {}
     return _tg(p, line);
   };
+}
+
+// =====================================================================
+// 3.2.3 – Grafik-Abstürze (0xC0000005) auf Laptops mit zwei Grafikkarten verhindern
+// =====================================================================
+const NATIVE_CRASH = new Set([3221225477, -1073741819, 3221226505, -1073740791]);
+async function setGpuPreference(javaPath, log) {
+  if (process.platform !== 'win32' || store.settings.gpuHigh === false || !javaPath) return;
+  const exes = new Set([javaPath, javaPath.replace(/java\.exe$/i, 'javaw.exe'), javaPath.replace(/javaw\.exe$/i, 'java.exe')]);
+  for (const exe of exes) {
+    await new Promise(r => require('child_process').execFile('reg', ['add', 'HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences', '/v', exe, '/t', 'REG_SZ', '/d', 'GpuPreference=2;', '/f'], { windowsHide: true, timeout: 5000 }, () => r()));
+  }
+  log('Grafikkarte: Hochleistung (dedizierte GPU) für Minecraft festgelegt');
+}
+/** options.txt aufräumen: leere Zeilen, ungültige Vollbild-Auflösung; im sicheren Modus Fenster statt Vollbild */
+async function prepareGraphics(p, javaPath, log = () => {}) {
+  await setGpuPreference(javaPath, log).catch(() => {});
+  const last = (store.sessions || []).filter(x => x.profileId === p.id).pop(); if (last && NATIVE_CRASH.has(last.code)) p.safeGraphics = true; // Absturz vor dem Update
+  const f = path.join(instanceDir(p), 'options.txt'); let txt; try { txt = await fsp.readFile(f, 'utf8'); } catch { return; }
+  const modern = /^2\d\./.test(p.version) || mcMinor(p.version) >= 21;
+  let changed = false;
+  let lines = txt.split(/\r?\n/).filter(l => { if (!l.trim()) { changed = true; return false; } return true; });
+  lines = lines.filter(l => { const m = /^fullscreenResolution:(.*)$/.exec(l); if (m && (p.safeGraphics || (modern && !m[1].trim().startsWith('{')))) { changed = true; return false; } return true; });
+  if (p.safeGraphics) {
+    lines = lines.map(l => { if (/^fullscreen:true$/.test(l)) { changed = true; return 'fullscreen:false'; } if (/^exclusiveFullscreen:true$/i.test(l)) { changed = true; return l.replace('true', 'false'); } return l; });
+    log('Sicherer Grafik-Modus: Start im Fenster (Vollbild später mit F11)');
+  }
+  if (changed) await fsp.writeFile(f, lines.join('\n') + '\n');
+}
+globalThis.__lellekTest.prepareGraphics = prepareGraphics;
+{ // aus .minecraft übernommene Einstellungen: nie direkt im Vollbild starten (andere Monitore/Auflösung)
+  const _iv = importVanillaSettings;
+  importVanillaSettings = async function (p, log, force) { const r = await _iv(p, log, force); if (r) { try { const f = path.join(instanceDir(p), 'options.txt'); const t = await fsp.readFile(f, 'utf8'); await fsp.writeFile(f, t.replace(/^fullscreen:true$/m, 'fullscreen:false').replace(/^fullscreenResolution:.*\r?\n?/m, '')); } catch {} } return r; };
 }
 const v3 = {
   app, ipcMain, shell, dialog, clipboard, JAVA_DIR, INSTANCES, store, saveStore, saveStoreNow, send, handlers, wrapHandler, logLauncher, notify,

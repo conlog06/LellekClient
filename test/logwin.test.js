@@ -18,4 +18,5 @@ ok(m && m[1] === '21:47:11' && m[2] === 'main' && ctx.lvOf(m[3]) === 'warn', 'Mo
 const m2 = ctx.LINE.exec('[12:00:00] [Client thread/INFO] [minecraft/Minecraft]: Setting user: X');
 ok(m2 && m2[2] === 'Client thread' && m2[5] === 'Setting user: X', 'Forge-1.12-Zeile zerlegt');
 ok(ctx.CONT.test('\tat java.base/sun.security.rsa.RSASignature.engineVerify(Unknown Source)') && ctx.CONT.test('java.security.SignatureException: Bad signature length'), 'Stacktrace-Zeilen erkannt');
+ok(k('Minecraft beendet mit Code 3221225477') === 'native', 'Grafiktreiber-Absturz erkannt');
 console.log(fail ? `${fail} fehlgeschlagen` : 'alle bestanden'); process.exitCode = fail ? 1 : 0;

@@ -4,6 +4,14 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.2.3
+
+- Behoben: Absturz beim Öffnen des Spielfensters (Code 3221225477) auf Laptops mit zwei Grafikkarten
+  - Minecraft wird fest auf die dedizierte Grafikkarte gesetzt
+  - Nach so einem Absturz startet die Instanz automatisch im sicheren Grafik-Modus (Fenster statt Vollbild)
+  - Aus .minecraft übernommene Einstellungen starten nicht mehr direkt im Vollbild; ungültige Vollbild-Auflösung und leere Zeilen werden entfernt
+- Log-Fenster erkennt und erklärt Grafiktreiber-Abstürze
+
 ## Neu in 3.2.2
 
 - Behoben: Im Fenster „Skin von Spieler übernehmen“ (und anderen neuen Dialogen) konnte man nichts eintippen

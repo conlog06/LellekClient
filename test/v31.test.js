@@ -40,6 +40,13 @@ const jar = (file, json) => { const z = new AdmZip(); z.addFile('fabric.mod.json
   h.ok(on('fabric-api.jar'), 'Fabric API bleibt immer an');
   const res = await h.call('bisect:stop', { id: 'p1', disableCulprits: true });
   h.ok(!on('kaputt.jar') && on('kaputt.jar.disabled') && ['a', 'b', 'lib', 'nutzt-lib'].every(n => on(n + '.jar')), 'Danach alles wieder an, nur die Schuldige aus');
+  // Grafik-Absturz-Schutz
+  const opt = path.join(h.DATA, 'instances', 'p1', 'options.txt');
+  fs.writeFileSync(opt, 'fullscreen:true\n\nfullscreenResolution:1920x1200\nrenderDistance:12\n');
+  await T.prepareGraphics({ id: 'p1', version: '26.3' }, '', () => {});
+  let o = fs.readFileSync(opt, 'utf8'); h.ok(!o.includes('1920x1200') && !/\n\n/.test(o) && o.includes('fullscreen:true'), 'Ungültige Auflösung + Leerzeilen entfernt');
+  await T.prepareGraphics({ id: 'p1', version: '26.3', safeGraphics: true }, '', () => {});
+  o = fs.readFileSync(opt, 'utf8'); h.ok(o.includes('fullscreen:false') && o.includes('renderDistance:12'), 'Sicherer Modus: Fenster statt Vollbild');
   // Merkliste
   let wl = await h.call('watch:toggle', { id: 'AANobbMI', title: 'Sodium', kind: 'mods' }); h.ok(wl.length === 1, 'Merkliste: hinzufügen');
   wl = await h.call('watch:toggle', { id: 'AANobbMI' }); h.ok(wl.length === 0, 'Merkliste: entfernen');
