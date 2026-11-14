@@ -14,9 +14,12 @@ function applyPause() {
   const pause = away || gaming;
   document.body.classList.toggle('idle-pause', pause);
   document.body.classList.toggle('game-running', V31.game);
-  try { if (typeof viewer !== 'undefined' && viewer) viewer.renderPaused = pause || state.view !== 'play'; } catch {}
-  try { if (typeof currentViewer !== 'undefined' && currentViewer) currentViewer.renderPaused = pause || state.view !== 'skins'; } catch {}
-  try { for (const v of skinViewers) v.renderPaused = pause || state.view !== 'skins'; } catch {}
+  // 3D-Skins: nur pausieren, wenn unsichtbar oder Minecraft läuft – nicht beim bloßen Fensterwechsel (sonst friert die Drehung seitlich ein)
+  const vPause = document.hidden || gaming;
+  const setV = (v, off) => { if (!v) return; if (off && !v.renderPaused) { try { v.resetCameraPose?.(); v.render?.(); } catch {} } v.renderPaused = off; };
+  try { if (typeof viewer !== 'undefined') setV(viewer, vPause || state.view !== 'play'); } catch {}
+  try { if (typeof currentViewer !== 'undefined') setV(currentViewer, vPause || state.view !== 'skins'); } catch {}
+  try { for (const v of skinViewers) setV(v, vPause || state.view !== 'skins'); } catch {}
 }
 window.addEventListener('blur', () => setTimeout(applyPause, 50));
 window.addEventListener('focus', applyPause);

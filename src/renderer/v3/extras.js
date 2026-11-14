@@ -74,7 +74,7 @@ safe('skin-from-player', () => {
   const bar = $('#skinAdd')?.parentElement; if (!bar) return;
   const b = h('button.ghost', { onclick: () => {
     const { body, foot, close } = v25Dialog();
-    const inp = h('input.input', { placeholder: 'Spielername, z. B. Dream', maxLength: 16, onkeydown: (e) => e.key === 'Enter' && go.click() });
+    const inp = h('input.input', { placeholder: 'Spielername, z. B. Dream', maxLength: 16, onkeydown: (e) => { if (e.key === 'Enter') go.click(); } });
     body.append(h('h2', 'Skin von Spieler übernehmen'), h('p.muted', 'Lädt den aktuellen Skin eines Java-Spielers in deine Bibliothek. Anwenden musst du ihn danach selbst.'), inp);
     const go = h('button.primary', { onclick: async () => { const n = inp.value.trim(); if (!n) return; go.disabled = true; go.textContent = 'Sucht …'; try { const r = await api.extras.skinFromPlayer(n); close(); toast(`Skin von ${r.name} gespeichert${r.slim ? ' (Slim)' : ''}`); renderSkins(); } catch (e) { toast(e.message, true); go.disabled = false; go.textContent = 'Übernehmen'; } } }, 'Übernehmen');
     foot.append(h('button.ghost', { onclick: close }, 'Abbrechen'), go); setTimeout(() => inp.focus(), 50);

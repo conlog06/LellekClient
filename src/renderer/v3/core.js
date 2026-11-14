@@ -6,7 +6,7 @@ function h(sel, attrs, ...kids) {
   let id = null; sel = String(sel).replace(/#([\w-]+)/, (m, x) => { id = x; return ''; });
   const [tag, ...cls] = sel.split('.'); const e = document.createElement(tag || 'div'); if (cls.length) e.className = cls.join(' '); if (id) e.id = id; if (tag === 'button') e.type = 'button'; // nie versehentlich Formulare absenden
   if (attrs && (typeof attrs !== 'object' || attrs instanceof Node || Array.isArray(attrs))) { kids.unshift(attrs); attrs = null; }
-  for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k.startsWith('on')) e[k] = v; else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v); else if (k === 'dataset') Object.assign(e.dataset, v); else if (k in e && k !== 'list') e[k] = v; else e.setAttribute(k, v); }
+  for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k.startsWith('on')) e[k] = function (ev) { v.call(this, ev); }; /* Rückgabewert ignorieren – „false“ würde sonst die Eingabe blockieren */ else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v); else if (k === 'dataset') Object.assign(e.dataset, v); else if (k in e && k !== 'list') e[k] = v; else e.setAttribute(k, v); }
   for (const k of kids.flat(Infinity)) if (k != null && k !== false) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
   return e;
 }

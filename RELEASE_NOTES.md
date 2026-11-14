@@ -4,6 +4,11 @@
 - **Mac mit M1–M4 (Apple Silicon):** `LellekClient-Mac-AppleSilicon.dmg` (oder `.zip`)
 - **Mac mit Intel:** `LellekClient-Mac-Intel.dmg` (oder `.zip`)
 
+## Neu in 3.2.2
+
+- Behoben: Im Fenster „Skin von Spieler übernehmen“ (und anderen neuen Dialogen) konnte man nichts eintippen
+- Behoben: 3D-Skin-Vorschau blieb seitlich stehen, wenn das Fenster im Hintergrund war
+
 ## Neu in 3.2.1
 
 - Behoben: Während Minecraft lief, blieben die anderen Seiten im Launcher leer
